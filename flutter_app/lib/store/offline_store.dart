@@ -1,0 +1,288 @@
+import 'dart:convert';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/borrower.dart';
+import '../models/loan.dart';
+import '../models/payment.dart';
+import '../models/schedule_installment.dart';
+import '../utils/loan_utils.dart';
+
+class OfflineStore {
+  static const String _storagePrefix = 'microlend_';
+  static const String _queueKey = '${_storagePrefix}write_queue';
+
+  final SharedPreferences _prefs;
+
+  OfflineStore(this._prefs);
+
+  static Future<OfflineStore> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    final store = OfflineStore(prefs);
+    await store.seedInitialData();
+    return store;
+  }
+
+  List<Map<String, dynamic>> getCollection(String collectionName) {
+    final key = '$_storagePrefix$collectionName';
+    final raw = _prefs.getString(key);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final List decoded = jsonDecode(raw);
+      return decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> saveCollection(String collectionName, List<Map<String, dynamic>> items) async {
+    final key = '$_storagePrefix$collectionName';
+    await _prefs.setString(key, jsonEncode(items));
+  }
+
+  List<Map<String, dynamic>> getQueue() {
+    final raw = _prefs.getString(_queueKey);
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final List decoded = jsonDecode(raw);
+      return decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> _pushToQueue(Map<String, dynamic> operation) async {
+    final queue = getQueue();
+    queue.add({
+      'id': 'queue_${DateTime.now().millisecondsSinceEpoch}',
+      'timestamp': DateTime.now().toIso8601String(),
+      ...operation,
+    });
+    await _prefs.setString(_queueKey, jsonEncode(queue));
+  }
+
+  Future<Map<String, dynamic>> syncAll() async {
+    final count = getQueue().length;
+    await Future.delayed(const Duration(milliseconds: 300));
+    await _prefs.setString(_queueKey, jsonEncode([]));
+    return {'success': true, 'syncedCount': count};
+  }
+
+  Future<Map<String, dynamic>> addItem(String collectionName, Map<String, dynamic> item) async {
+    final collection = getCollection(collectionName);
+    final newItem = {
+      'id': item['id'] ?? '${collectionName.substring(0, 3)}_${DateTime.now().millisecondsSinceEpoch}',
+      'createdAt': DateTime.now().toIso8601String(),
+      ...item,
+    };
+
+    final updated = [newItem, ...collection];
+    await saveCollection(collectionName, updated);
+
+    await _pushToQueue({
+      'action': 'CREATE',
+      'collection': collectionName,
+      'payload': newItem,
+    });
+
+    return newItem;
+  }
+
+  Future<Map<String, dynamic>?> updateItem(String collectionName, String id, Map<String, dynamic> updates) async {
+    final collection = getCollection(collectionName);
+    Map<String, dynamic>? updatedItem;
+
+    final updated = collection.map((item) {
+      if (item['id'] == id) {
+        updatedItem = {
+          ...item,
+          ...updates,
+          'updatedAt': DateTime.now().toIso8601String(),
+        };
+        return updatedItem!;
+      }
+      return item;
+    }).toList();
+
+    await saveCollection(collectionName, updated);
+
+    if (updatedItem != null) {
+      await _pushToQueue({
+        'action': 'UPDATE',
+        'collection': collectionName,
+        'id': id,
+        'payload': updates,
+      });
+    }
+
+    return updatedItem;
+  }
+
+  Future<void> deleteItem(String collectionName, String id) async {
+    final collection = getCollection(collectionName);
+    final updated = collection.where((item) => item['id'] != id).toList();
+    await saveCollection(collectionName, updated);
+
+    await _pushToQueue({
+      'action': 'DELETE',
+      'collection': collectionName,
+      'id': id,
+    });
+  }
+
+  Future<void> seedInitialData() async {
+    final existingBorrowers = getCollection('borrowers');
+    final existingLoans = getCollection('loans');
+
+    if (existingBorrowers.isNotEmpty || existingLoans.isNotEmpty) {
+      return;
+    }
+
+    final today = DateTime.now();
+
+    String monthsAgo(int m) {
+      final d = DateTime(today.year, today.month - m, today.day);
+      return DateFormat('yyyy-MM-dd').format(d);
+    }
+
+    final sampleBorrowers = [
+      Borrower(
+        id: 'bor_elena_01',
+        fullName: 'Elena Rostova',
+        email: 'elena.rostova@example.com',
+        phone: '+1 (555) 234-5678',
+        address: '742 Evergreen Terrace, Springfield, IL',
+        idNumber: 'ID-8839201',
+        employment: 'Senior Software Engineer at TechCorp',
+        monthlyIncome: 6800.0,
+        creditScore: 82,
+        riskRating: 'low',
+        notes: 'Reliable client, always pays on or ahead of time. High income-to-debt ratio.',
+        createdAt: monthsAgo(6),
+      ),
+      Borrower(
+        id: 'bor_marcus_02',
+        fullName: 'Marcus Vance',
+        email: 'm.vance@example.com',
+        phone: '+1 (555) 876-5432',
+        address: '1048 Ocean Avenue, Santa Monica, CA',
+        idNumber: 'ID-4421098',
+        employment: 'Retail Store Manager at Urban Outfitters',
+        monthlyIncome: 3900.0,
+        creditScore: 62,
+        riskRating: 'medium',
+        notes: 'Seasonal store sales fluctuations. Keeps good communication.',
+        createdAt: monthsAgo(4),
+      ),
+      Borrower(
+        id: 'bor_aisha_03',
+        fullName: 'Aisha Patel',
+        email: 'aisha.design@example.com',
+        phone: '+1 (555) 345-6789',
+        address: '302 Pine Street, Austin, TX',
+        idNumber: 'ID-9920112',
+        employment: 'Freelance UI/UX Designer',
+        monthlyIncome: 2900.0,
+        creditScore: 55,
+        riskRating: 'medium',
+        notes: 'New applicant requesting working capital for new workstation setup.',
+        createdAt: monthsAgo(1),
+      ),
+    ];
+
+    await saveCollection('borrowers', sampleBorrowers.map((b) => b.toMap()).toList());
+
+    // Loan 1
+    final loan1Disbursed = monthsAgo(2);
+    final loan1Schedule = LoanUtils.generateSchedule(5000.0, 10.0, 12, loan1Disbursed);
+    final loan1Payments = [
+      Payment(
+        id: 'pay_01',
+        date: monthsAgo(1),
+        amount: loan1Schedule[0].amount,
+        method: 'Bank Transfer',
+        note: 'Installment 1 paid',
+      ),
+      Payment(
+        id: 'pay_02',
+        date: monthsAgo(0),
+        amount: loan1Schedule[1].amount,
+        method: 'Bank Transfer',
+        note: 'Installment 2 paid',
+      ),
+    ];
+
+    // Loan 2
+    final loan2Disbursed = monthsAgo(3);
+    final loan2Schedule = LoanUtils.generateSchedule(3000.0, 14.0, 6, loan2Disbursed);
+    final loan2Payments = [
+      Payment(
+        id: 'pay_03',
+        date: monthsAgo(2),
+        amount: loan2Schedule[0].amount,
+        method: 'Debit Card',
+        note: 'Installment 1 paid',
+      ),
+      Payment(
+        id: 'pay_04',
+        date: monthsAgo(1),
+        amount: 150.0,
+        method: 'Cash',
+        note: 'Partial payment for installment 2',
+      ),
+    ];
+
+    // Loan 3
+    final loan3Disbursed = DateFormat('yyyy-MM-dd').format(today);
+    final loan3Schedule = LoanUtils.generateSchedule(2500.0, 12.0, 6, loan3Disbursed);
+
+    final sampleLoans = [
+      Loan(
+        id: 'loan_elena_01',
+        borrowerId: 'bor_elena_01',
+        principal: 5000.0,
+        interestRate: 10.0,
+        termMonths: 12,
+        purpose: 'Tech Equipment Purchase',
+        status: 'active',
+        disbursementDate: loan1Disbursed,
+        creditAssessment: LoanUtils.assessBorrower(sampleBorrowers[0], []),
+        schedule: loan1Schedule,
+        payments: loan1Payments,
+        notes: 'Computer upgrade financing for freelance business expansion.',
+        createdAt: loan1Disbursed,
+      ),
+      Loan(
+        id: 'loan_marcus_02',
+        borrowerId: 'bor_marcus_02',
+        principal: 3000.0,
+        interestRate: 14.0,
+        termMonths: 6,
+        purpose: 'Retail Inventory Restock',
+        status: 'active',
+        disbursementDate: loan2Disbursed,
+        creditAssessment: LoanUtils.assessBorrower(sampleBorrowers[1], []),
+        schedule: loan2Schedule,
+        payments: loan2Payments,
+        notes: 'Inventory financing for seasonal merchandise.',
+        createdAt: loan2Disbursed,
+      ),
+      Loan(
+        id: 'loan_aisha_03',
+        borrowerId: 'bor_aisha_03',
+        principal: 2500.0,
+        interestRate: 12.0,
+        termMonths: 6,
+        purpose: 'Studio Design Workstation',
+        status: 'pending',
+        disbursementDate: loan3Disbursed,
+        creditAssessment: LoanUtils.assessBorrower(sampleBorrowers[2], []),
+        schedule: loan3Schedule,
+        payments: [],
+        notes: 'Awaiting final approval on design portfolio verification.',
+        createdAt: loan3Disbursed,
+      ),
+    ];
+
+    await saveCollection('loans', sampleLoans.map((l) => l.toMap()).toList());
+  }
+}
