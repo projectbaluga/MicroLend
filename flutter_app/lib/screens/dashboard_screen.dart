@@ -45,7 +45,7 @@ class DashboardScreen extends StatelessWidget {
       }
 
       if (['active', 'completed', 'defaulted'].contains(loan.status)) {
-        totalDisbursed += loan.principal;
+        totalDisbursed += stats.totalDisbursed;
         outstandingBalance += stats.outstandingBalance;
         overdueAmount += stats.overdueAmount;
       }
@@ -132,31 +132,31 @@ class DashboardScreen extends StatelessWidget {
               ),
               StatCard(
                 title: 'Total Disbursed',
-                value: LoanUtils.formatCurrency(totalDisbursed),
-                subtext: 'Cumulative principal',
+                value: LoanUtils.formatCurrency(totalDisbursed, state.currencyCode),
+                subtext: 'Net disbursed principal',
                 icon: Icons.attach_money,
               ),
               StatCard(
                 title: 'Outstanding',
-                value: LoanUtils.formatCurrency(outstandingBalance),
+                value: LoanUtils.formatCurrency(outstandingBalance, state.currencyCode),
                 subtext: 'Remaining balance',
                 icon: Icons.access_time,
               ),
               StatCard(
                 title: 'Overdue',
-                value: LoanUtils.formatCurrency(overdueAmount),
+                value: LoanUtils.formatCurrency(overdueAmount, state.currencyCode),
                 subtext: 'Requires attention',
                 icon: Icons.warning_amber_rounded,
               ),
               StatCard(
                 title: 'Collected (Month)',
-                value: LoanUtils.formatCurrency(collectedThisMonth),
+                value: LoanUtils.formatCurrency(collectedThisMonth, state.currencyCode),
                 subtext: 'Recorded this month',
                 icon: Icons.check_circle_outline,
               ),
               StatCard(
                 title: 'Expected (Month)',
-                value: LoanUtils.formatCurrency(expectedThisMonth),
+                value: LoanUtils.formatCurrency(expectedThisMonth, state.currencyCode),
                 subtext: 'Scheduled this month',
                 icon: Icons.calendar_today,
               ),
@@ -287,7 +287,7 @@ class DashboardScreen extends StatelessWidget {
                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                 ),
                                 Text(
-                                  '${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal)}',
+                                  '${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)}',
                                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                                 ),
                               ],
@@ -296,7 +296,7 @@ class DashboardScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  '${LoanUtils.formatCurrency(stats.overdueAmount)} overdue',
+                                  '${LoanUtils.formatCurrency(stats.overdueAmount, state.currencyCode)} overdue',
                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent),
                                 ),
                                 if (stats.nextDue != null)
@@ -346,7 +346,7 @@ class DashboardScreen extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                '${b?.fullName ?? 'Unknown'} (${LoanUtils.formatCurrency(loan.principal)})',
+                                '${b?.fullName ?? 'Unknown'} (${LoanUtils.formatCurrency(loan.principal, state.currencyCode)})',
                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                               ),
                               AppBadge(text: loan.status, variant: loan.status),

@@ -36,6 +36,23 @@ class LoanUtils {
     return (val * 100.0).round() / 100.0;
   }
 
+  static double calculateUpfrontDeduction(double principal, String type, double value) {
+    final p = max(0.0, principal);
+    final val = max(0.0, value);
+
+    if (type == 'percent') {
+      return round2(p * (val / 100.0));
+    } else if (type == 'fixed') {
+      return round2(min(p, val));
+    }
+    return 0.0;
+  }
+
+  static double calculateNetDisbursed(double principal, String type, double value) {
+    final deduction = calculateUpfrontDeduction(principal, type, value);
+    return round2(max(0.0, principal - deduction));
+  }
+
   static String formatCurrency(double amount, [String? currencyCode]) {
     final code = currencyCode ?? defaultCurrencyCode;
     String symbol = '\$';
@@ -222,8 +239,14 @@ class LoanUtils {
       nextDue = null;
     }
 
+    final netDisbursed = calculateNetDisbursed(
+      loan.principal,
+      loan.upfrontDeductionType,
+      loan.upfrontDeductionValue,
+    );
+
     return LoanStats(
-      totalDisbursed: loan.principal,
+      totalDisbursed: netDisbursed,
       totalScheduled: round2(totalScheduled),
       totalPaid: round2(totalPaid),
       outstandingBalance: round2(outstandingBalance),

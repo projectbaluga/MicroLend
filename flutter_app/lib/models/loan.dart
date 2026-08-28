@@ -11,6 +11,8 @@ class Loan {
   final String purpose;
   final String status;
   final String disbursementDate;
+  final String upfrontDeductionType; // 'none', 'fixed', 'percent'
+  final double upfrontDeductionValue;
   final CreditAssessment? creditAssessment;
   final List<ScheduleInstallment> schedule;
   final List<Payment> payments;
@@ -27,6 +29,8 @@ class Loan {
     required this.purpose,
     required this.status,
     required this.disbursementDate,
+    this.upfrontDeductionType = 'none',
+    this.upfrontDeductionValue = 0.0,
     this.creditAssessment,
     required this.schedule,
     required this.payments,
@@ -45,6 +49,8 @@ class Loan {
       purpose: map['purpose']?.toString() ?? '',
       status: map['status']?.toString() ?? 'pending',
       disbursementDate: map['disbursement_date']?.toString() ?? map['disbursementDate']?.toString() ?? '',
+      upfrontDeductionType: map['upfront_deduction_type']?.toString() ?? map['upfrontDeductionType']?.toString() ?? 'none',
+      upfrontDeductionValue: (map['upfront_deduction_value'] as num?)?.toDouble() ?? (map['upfrontDeductionValue'] as num?)?.toDouble() ?? 0.0,
       creditAssessment: map['credit_assessment'] != null
           ? CreditAssessment.fromMap(Map<String, dynamic>.from(map['credit_assessment']))
           : null,
@@ -70,6 +76,8 @@ class Loan {
       'purpose': purpose,
       'status': status,
       'disbursement_date': disbursementDate,
+      'upfront_deduction_type': upfrontDeductionType,
+      'upfront_deduction_value': upfrontDeductionValue,
       if (creditAssessment != null) 'credit_assessment': creditAssessment!.toMap(),
       'schedule': schedule.map((e) => e.toMap()).toList(),
       'payments': payments.map((e) => e.toMap()).toList(),
@@ -88,6 +96,8 @@ class Loan {
     String? purpose,
     String? status,
     String? disbursementDate,
+    String? upfrontDeductionType,
+    double? upfrontDeductionValue,
     CreditAssessment? creditAssessment,
     List<ScheduleInstallment>? schedule,
     List<Payment>? payments,
@@ -104,6 +114,8 @@ class Loan {
       purpose: purpose ?? this.purpose,
       status: status ?? this.status,
       disbursementDate: disbursementDate ?? this.disbursementDate,
+      upfrontDeductionType: upfrontDeductionType ?? this.upfrontDeductionType,
+      upfrontDeductionValue: upfrontDeductionValue ?? this.upfrontDeductionValue,
       creditAssessment: creditAssessment ?? this.creditAssessment,
       schedule: schedule ?? this.schedule,
       payments: payments ?? this.payments,

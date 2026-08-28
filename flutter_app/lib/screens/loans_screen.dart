@@ -47,6 +47,9 @@ class _LoansScreenState extends State<LoansScreen> {
     final dateCtrl = TextEditingController(text: DateTime.now().toIso8601String().split('T')[0]);
     final notesCtrl = TextEditingController();
 
+    String deductionType = 'none'; // 'none', 'fixed', 'percent'
+    final deductionValueCtrl = TextEditingController(text: '0');
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -56,6 +59,11 @@ class _LoansScreenState extends State<LoansScreen> {
             final p = double.tryParse(principalCtrl.text.trim()) ?? 0.0;
             final r = double.tryParse(rateCtrl.text.trim()) ?? 0.0;
             final t = int.tryParse(termCtrl.text.trim()) ?? 1;
+            final dVal = double.tryParse(deductionValueCtrl.text.trim()) ?? 0.0;
+
+            final deductionAmount = LoanUtils.calculateUpfrontDeduction(p, deductionType, dVal);
+            final netDisbursed = LoanUtils.calculateNetDisbursed(p, deductionType, dVal);
+
             final schedPreview = (p > 0 && t > 0)
                 ? LoanUtils.generateSchedule(p, r, t, dateCtrl.text.trim())
                 : [];
@@ -116,6 +124,43 @@ class _LoansScreenState extends State<LoansScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: deductionType,
+                            decoration: const InputDecoration(labelText: 'Upfront Deduction', border: OutlineInputBorder()),
+                            items: const [
+                              DropdownMenuItem(value: 'none', child: Text('None')),
+                              DropdownMenuItem(value: 'fixed', child: Text('Fixed Amount (\$)')),
+                              DropdownMenuItem(value: 'percent', child: Text('Percentage (%)')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setModalState(() {
+                                  deductionType = val;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        if (deductionType != 'none') ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: deductionValueCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: deductionType == 'fixed' ? 'Deduction Amount (\$)' : 'Deduction Percentage (%)',
+                                border: const OutlineInputBorder(),
+                              ),
+                              onChanged: (_) => setModalState(() {}),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: purposeCtrl,
                       decoration: const InputDecoration(labelText: 'Purpose *', border: OutlineInputBorder()),
@@ -127,9 +172,9 @@ class _LoansScreenState extends State<LoansScreen> {
                       onChanged: (_) => setModalState(() {}),
                     ),
                     const SizedBox(height: 10),
-                    if (schedPreview.isNotEmpty) ...[
+                    if (p > 0) ...[
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -137,8 +182,17 @@ class _LoansScreenState extends State<LoansScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Est. Monthly Payment: ${LoanUtils.formatCurrency(schedPreview[0].amount, state.currencyCode)}',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            if (deductionType != 'none') ...[
+                              Text('Upfront Fee Deduction: -${LoanUtils.formatCurrency(deductionAmount, state.currencyCode)}',
+                                  style: const TextStyle(fontSize: 11, color: Colors.redAccent)),
+                              const SizedBox(height: 2),
+                              Text('Net Disbursed to Borrower: ${LoanUtils.formatCurrency(netDisbursed, state.currencyCode)}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                              const SizedBox(height: 4),
+                            ],
+                            if (schedPreview.isNotEmpty)
+                              Text('Est. Monthly Repayment: ${LoanUtils.formatCurrency(schedPreview[0].amount, state.currencyCode)}',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -172,6 +226,8 @@ class _LoansScreenState extends State<LoansScreen> {
                               purpose: purposeCtrl.text.trim(),
                               status: 'pending',
                               disbursementDate: dateCtrl.text.trim(),
+                              upfrontDeductionType: deductionType,
+                              upfrontDeductionValue: dVal,
                               creditAssessment: assessment,
                               schedule: sched,
                               payments: [],
