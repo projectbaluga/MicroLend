@@ -113,6 +113,17 @@ class LoanDetailScreen extends StatelessWidget {
     final borrower = borrowers.firstWhere((b) => b.id == loan.borrowerId, orElse: () => borrowers.first);
     final stats = LoanUtils.getLoanStats(loan);
 
+    final deductionAmount = LoanUtils.calculateUpfrontDeduction(
+      loan.principal,
+      loan.upfrontDeductionType,
+      loan.upfrontDeductionValue,
+    );
+    final netDisbursed = LoanUtils.calculateNetDisbursed(
+      loan.principal,
+      loan.upfrontDeductionType,
+      loan.upfrontDeductionValue,
+    );
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBack),
@@ -177,8 +188,15 @@ class LoanDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text('${LoanUtils.formatCurrency(loan.principal)} @ ${loan.interestRate}% • ${loan.termMonths} mo',
+                  Text('Principal: ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)} @ ${loan.interestRate}% • ${loan.termMonths} mo',
                       style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  if (loan.upfrontDeductionType != 'none') ...[
+                    const SizedBox(height: 4),
+                    Text('Upfront Deduction: -${LoanUtils.formatCurrency(deductionAmount, state.currencyCode)} (${loan.upfrontDeductionType == 'percent' ? '${loan.upfrontDeductionValue}%' : 'fixed'})',
+                        style: const TextStyle(fontSize: 11, color: Colors.redAccent)),
+                    Text('Net Disbursed: ${LoanUtils.formatCurrency(netDisbursed, state.currencyCode)}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                  ],
                   const SizedBox(height: 12),
                   AppProgressBar(percentage: stats.progressPct),
                   const SizedBox(height: 12),
@@ -191,14 +209,14 @@ class LoanDetailScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Total Scheduled', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          Text(LoanUtils.formatCurrency(stats.totalScheduled), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text(LoanUtils.formatCurrency(stats.totalScheduled, state.currencyCode), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Total Paid', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          Text(LoanUtils.formatCurrency(stats.totalPaid),
+                          Text(LoanUtils.formatCurrency(stats.totalPaid, state.currencyCode),
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
                         ],
                       ),
@@ -206,14 +224,14 @@ class LoanDetailScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Outstanding', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          Text(LoanUtils.formatCurrency(stats.outstandingBalance), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text(LoanUtils.formatCurrency(stats.outstandingBalance, state.currencyCode), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Overdue', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          Text(LoanUtils.formatCurrency(stats.overdueAmount),
+                          Text(LoanUtils.formatCurrency(stats.overdueAmount, state.currencyCode),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -276,9 +294,9 @@ class LoanDetailScreen extends StatelessWidget {
                           cells: [
                             DataCell(Text('${inst.installmentNo}', style: const TextStyle(fontSize: 11))),
                             DataCell(Text(LoanUtils.formatDate(inst.dueDate), style: const TextStyle(fontSize: 11))),
-                            DataCell(Text(LoanUtils.formatCurrency(inst.amount), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                            DataCell(Text(LoanUtils.formatCurrency(inst.principal), style: const TextStyle(fontSize: 11, color: Colors.grey))),
-                            DataCell(Text(LoanUtils.formatCurrency(inst.interest), style: const TextStyle(fontSize: 11, color: Colors.grey))),
+                            DataCell(Text(LoanUtils.formatCurrency(inst.amount, state.currencyCode), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                            DataCell(Text(LoanUtils.formatCurrency(inst.principal, state.currencyCode), style: const TextStyle(fontSize: 11, color: Colors.grey))),
+                            DataCell(Text(LoanUtils.formatCurrency(inst.interest, state.currencyCode), style: const TextStyle(fontSize: 11, color: Colors.grey))),
                             DataCell(AppBadge(text: inst.status, variant: inst.status)),
                           ],
                         );
@@ -314,7 +332,7 @@ class LoanDetailScreen extends StatelessWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(LoanUtils.formatCurrency(p.amount),
+                                Text(LoanUtils.formatCurrency(p.amount, state.currencyCode),
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                 Text('via ${p.method} • ${p.note}',
                                     style: const TextStyle(fontSize: 10, color: Colors.grey)),

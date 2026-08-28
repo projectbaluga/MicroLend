@@ -25,6 +25,42 @@ void main() {
     });
   });
 
+  group('LoanUtils Upfront Deduction', () {
+    test('calculates upfront deduction correctly for percent and fixed types', () {
+      expect(LoanUtils.calculateUpfrontDeduction(1000.0, 'none', 50.0), 0.0);
+      expect(LoanUtils.calculateUpfrontDeduction(1000.0, 'fixed', 50.0), 50.0);
+      expect(LoanUtils.calculateUpfrontDeduction(1000.0, 'percent', 5.0), 50.0);
+      expect(LoanUtils.calculateUpfrontDeduction(1000.0, 'fixed', 1500.0), 1000.0);
+    });
+
+    test('calculates net disbursed correctly', () {
+      expect(LoanUtils.calculateNetDisbursed(1000.0, 'none', 0.0), 1000.0);
+      expect(LoanUtils.calculateNetDisbursed(1000.0, 'fixed', 50.0), 950.0);
+      expect(LoanUtils.calculateNetDisbursed(1000.0, 'percent', 2.5), 975.0);
+    });
+
+    test('getLoanStats uses net disbursed for totalDisbursed', () {
+      final loan = Loan(
+        id: 'l1',
+        borrowerId: 'b1',
+        principal: 1000.0,
+        interestRate: 12.0,
+        termMonths: 12,
+        purpose: 'Test',
+        status: 'active',
+        disbursementDate: '2025-01-01',
+        upfrontDeductionType: 'percent',
+        upfrontDeductionValue: 5.0,
+        schedule: [],
+        payments: [],
+        notes: '',
+      );
+
+      final stats = LoanUtils.getLoanStats(loan);
+      expect(stats.totalDisbursed, 950.0);
+    });
+  });
+
   group('LoanUtils.generateSchedule', () {
     test('generates 12 month amortizing loan schedule correctly', () {
       final schedule = LoanUtils.generateSchedule(1000.0, 12.0, 12, '2025-01-01');
