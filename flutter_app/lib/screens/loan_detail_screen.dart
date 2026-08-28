@@ -49,7 +49,7 @@ class LoanDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
-                value: selectedMethod,
+                initialValue: selectedMethod,
                 decoration: const InputDecoration(labelText: 'Method', border: OutlineInputBorder()),
                 items: const [
                   DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer')),
@@ -261,7 +261,8 @@ class LoanDetailScreen extends StatelessWidget {
                     child: DataTable(
                       columnSpacing: 16,
                       headingRowHeight: 32,
-                      dataRowHeight: 36,
+                      dataRowMinHeight: 36,
+                      dataRowMaxHeight: 36,
                       columns: const [
                         DataColumn(label: Text('#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                         DataColumn(label: Text('Due Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),

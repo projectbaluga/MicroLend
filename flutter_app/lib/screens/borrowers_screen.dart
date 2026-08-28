@@ -113,7 +113,7 @@ class _BorrowersScreenState extends State<BorrowersScreen> {
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  value: selectedRisk,
+                  initialValue: selectedRisk,
                   decoration: const InputDecoration(labelText: 'Risk Rating', border: OutlineInputBorder()),
                   items: const [
                     DropdownMenuItem(value: 'low', child: Text('Low Risk')),
