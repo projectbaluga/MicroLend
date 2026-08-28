@@ -1,17 +1,73 @@
-# microlend
+# MicroLend Flutter Application
 
-A new Flutter project.
+A local-first, offline-capable micro-lending management suite built with Flutter for Android, iOS, and Windows Desktop.
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
+- **Dashboard**: Portfolio overview metrics, 6-month expected cash flow chart, overdue repayments tracker, and recent loans progress bars.
+- **Borrowers Management**: Full borrower CRUD, searchable/filterable table, risk badges, and automated credit scoring derived from loan repayment history and Debt-to-Income (DTI) ratio.
+- **Loans Portfolio**: Issue loans, view schedule previews, support for upfront deduction fees (fixed amount or percentage), approval workflows, and installment payment tracking.
+- **Settings & Preferences**: Currency formatting (USD, EUR, PHP, GBP), theme mode toggle (light/dark), customizable default interest rates/terms, JSON data export, and sample data restoration.
+- **Local-First & Offline Capable**: Built with `shared_preferences` local persistence and an offline queue mechanism (`microlend_write_queue`) with sync indicator.
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Windows Desktop Support
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+MicroLend natively runs on Windows Desktop with a responsive desktop layout featuring a side `NavigationRail` on wide screens.
+
+### Prerequisites for Windows Desktop Development
+
+To run or build MicroLend on Windows:
+1. **Flutter SDK**: Installed and configured in PATH.
+2. **Visual Studio**: Visual Studio 2022 (or 2019) with the **"Desktop development with C++"** workload installed (includes MSVC C++ compiler, CMake, and Windows 10/11 SDK).
+3. Verify setup:
+   ```bash
+   flutter doctor
+   ```
+   Ensure `[√] Windows toolchain - develop for Windows` shows a checkmark.
+
+### Running on Windows
+
+To launch the app in Windows desktop debug mode:
+```bash
+cd flutter_app
+flutter run -d windows
+```
+
+### Building for Windows Release
+
+To generate an optimized, standalone Windows executable:
+```bash
+cd flutter_app
+flutter build windows --release
+```
+
+The release build output (containing `microlend.exe` and required Flutter/C++ DLLs) will be generated at:
+```
+flutter_app/build/windows/x64/runner/Release/
+```
+
+---
+
+## Mobile & Cross-Platform
+
+- **Android Build**:
+  ```bash
+  flutter build apk --release
+  flutter build appbundle --release
+  ```
+- **iOS Build**:
+  ```bash
+  flutter build ios --release --no-codesign
+  ```
+
+---
+
+## Testing & Code Quality
+
+Run tests and static analysis from `flutter_app/`:
+```bash
+flutter analyze
+flutter test
+```
