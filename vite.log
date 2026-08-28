@@ -10,3 +10,5 @@
 2:43:50 AM [vite] (client) hmr update /src/index.css, /src/components/Header.jsx, /src/pages/Dashboard.jsx, /src/pages/Borrowers.jsx, /src/pages/BorrowerDetail.jsx, /src/pages/Loans.jsx, /src/pages/LoanDetail.jsx
 2:45:26 AM [vite] (client) hmr update /src/index.css, /src/components/Header.jsx, /src/pages/Dashboard.jsx, /src/pages/Borrowers.jsx, /src/pages/BorrowerDetail.jsx, /src/pages/Loans.jsx, /src/pages/LoanDetail.jsx
 2:45:29 AM [vite] (client) page reload src/store/offlineStore.test.js
+4:45:39 AM [vite] (client) page reload flutter_app/web/index.html
+4:45:39 AM [vite] (client) page reload flutter_app/web/index.html
