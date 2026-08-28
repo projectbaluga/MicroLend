@@ -29,20 +29,42 @@ class LoanStats {
 }
 
 class LoanUtils {
+  static String defaultCurrencyCode = 'USD';
+  static String defaultDateFormat = 'MMM d, yyyy';
+
   static double round2(double val) {
     return (val * 100.0).round() / 100.0;
   }
 
-  static String formatCurrency(double amount) {
-    final formatter = NumberFormat.currency(locale: 'en_US', symbol: '\$', decimalDigits: 2);
+  static String formatCurrency(double amount, [String? currencyCode]) {
+    final code = currencyCode ?? defaultCurrencyCode;
+    String symbol = '\$';
+    switch (code.toUpperCase()) {
+      case 'EUR':
+        symbol = '€';
+        break;
+      case 'PHP':
+        symbol = '₱';
+        break;
+      case 'GBP':
+        symbol = '£';
+        break;
+      case 'USD':
+      default:
+        symbol = '\$';
+        break;
+    }
+
+    final formatter = NumberFormat.currency(locale: 'en_US', symbol: symbol, decimalDigits: 2);
     return formatter.format(amount);
   }
 
-  static String formatDate(String? dateStr) {
+  static String formatDate(String? dateStr, [String? formatPattern]) {
     if (dateStr == null || dateStr.isEmpty) return 'N/A';
+    final pattern = formatPattern ?? defaultDateFormat;
     try {
       final dt = DateTime.parse(dateStr);
-      return DateFormat('MMM d, yyyy').format(dt);
+      return DateFormat(pattern).format(dt);
     } catch (_) {
       return dateStr;
     }
@@ -82,7 +104,6 @@ class LoanUtils {
     final List<ScheduleInstallment> schedule = [];
 
     for (int i = 1; i <= n; i++) {
-      // Month addition handling
       var year = startDate.year;
       var month = startDate.month + i;
       while (month > 12) {

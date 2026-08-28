@@ -8,6 +8,7 @@ import '../utils/loan_utils.dart';
 
 class OfflineStore {
   static const String _storagePrefix = 'microlend_';
+  static const String _settingPrefix = '${_storagePrefix}setting_';
   static const String _queueKey = '${_storagePrefix}write_queue';
 
   final SharedPreferences _prefs;
@@ -19,6 +20,14 @@ class OfflineStore {
     final store = OfflineStore(prefs);
     await store.seedInitialData();
     return store;
+  }
+
+  String getSetting(String key, String defaultValue) {
+    return _prefs.getString('$_settingPrefix$key') ?? defaultValue;
+  }
+
+  Future<void> setSetting(String key, String value) async {
+    await _prefs.setString('$_settingPrefix$key', value);
   }
 
   List<Map<String, dynamic>> getCollection(String collectionName) {
@@ -128,12 +137,22 @@ class OfflineStore {
     });
   }
 
-  Future<void> seedInitialData() async {
+  Future<void> clearAllData() async {
+    await saveCollection('borrowers', []);
+    await saveCollection('loans', []);
+    await _prefs.setString(_queueKey, jsonEncode([]));
+  }
+
+  Future<void> seedInitialData({bool force = false}) async {
     final existingBorrowers = getCollection('borrowers');
     final existingLoans = getCollection('loans');
 
-    if (existingBorrowers.isNotEmpty || existingLoans.isNotEmpty) {
+    if (!force && (existingBorrowers.isNotEmpty || existingLoans.isNotEmpty)) {
       return;
+    }
+
+    if (force) {
+      await clearAllData();
     }
 
     final today = DateTime.now();
