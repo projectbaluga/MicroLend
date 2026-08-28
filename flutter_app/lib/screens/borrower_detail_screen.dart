@@ -25,7 +25,6 @@ class BorrowerDetailScreen extends StatelessWidget {
     final state = Provider.of<AppState>(context);
     final borrowers = state.borrowers;
     final loans = state.loans;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final borrower = borrowers.firstWhere(
       (b) => b.id == borrowerId,

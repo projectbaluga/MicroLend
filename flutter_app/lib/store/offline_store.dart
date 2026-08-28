@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/borrower.dart';
 import '../models/loan.dart';
 import '../models/payment.dart';
-import '../models/schedule_installment.dart';
 import '../utils/loan_utils.dart';
 
 class OfflineStore {

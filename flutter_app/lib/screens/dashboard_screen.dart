@@ -1,7 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/loan.dart';
 import '../store/app_state.dart';
 import '../utils/loan_utils.dart';
 import '../widgets/app_badge.dart';
@@ -218,14 +217,14 @@ class DashboardScreen extends StatelessWidget {
                           isCurved: true,
                           color: Colors.grey,
                           barWidth: 2,
-                          belowBarData: BarAreaData(show: true, color: Colors.grey.withOpacity(0.1)),
+                          belowBarData: BarAreaData(show: true, color: Colors.grey.withValues(alpha: 0.1)),
                         ),
                         LineChartBarData(
                           spots: collectedSpots,
                           isCurved: true,
                           color: const Color(0xFF10B981),
                           barWidth: 2,
-                          belowBarData: BarAreaData(show: true, color: const Color(0xFF10B981).withOpacity(0.2)),
+                          belowBarData: BarAreaData(show: true, color: const Color(0xFF10B981).withValues(alpha: 0.2)),
                         ),
                       ],
                     ),

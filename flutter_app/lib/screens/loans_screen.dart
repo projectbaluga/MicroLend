@@ -75,7 +75,7 @@ class _LoansScreenState extends State<LoansScreen> {
                     const Text('Issue New Loan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: selectedBorrowerId,
+                      initialValue: selectedBorrowerId,
                       decoration: const InputDecoration(labelText: 'Borrower *', border: OutlineInputBorder()),
                       items: borrowers.map((b) {
                         return DropdownMenuItem(value: b.id, child: Text(b.fullName));
@@ -131,7 +131,7 @@ class _LoansScreenState extends State<LoansScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: Colors.grey.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
