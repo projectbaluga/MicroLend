@@ -6,6 +6,20 @@ This repository contains both the **React Web Application** and the **Flutter Mo
 
 ---
 
+## 🚀 CI / CD & Automated Builds (GitHub Actions)
+
+On every push to `main` and pull request, GitHub Actions automatically builds, analyzes, and tests the application:
+
+- **Android Job (`ubuntu-latest`)**: Sets up Java 17 & Flutter, runs `flutter analyze` and `flutter test`, builds release APK and AAB, and uploads artifacts:
+  - `microlend-android-apk` (`app-release.apk`)
+  - `microlend-android-aab` (`app-release.aab`)
+- **iOS Job (`macos-latest`)**: Sets up Flutter, runs `flutter build ios --release --no-codesign`, and uploads the unsigned iOS build artifact:
+  - `microlend-ios-unsigned`
+
+To download the latest APK or build artifacts, navigate to the **Actions** tab on GitHub, click the latest workflow run, and scroll down to **Artifacts**.
+
+---
+
 ## 📱 Flutter Mobile Application (`flutter_app/`)
 
 Reimplemented in Dart/Flutter with local-first on-device storage (`shared_preferences`), `fl_chart` analytics, and full feature parity with the web suite.

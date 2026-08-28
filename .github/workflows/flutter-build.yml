@@ -1,0 +1,106 @@
+# MicroLend Flutter App CI/CD Workflow
+#
+# PREREQUISITE ASSUMPTION:
+# This workflow assumes that the Flutter project exists in the `flutter_app/` directory
+# at the repository root, containing its own `pubspec.yaml` file.
+#
+# SIGNING & RELEASE DISTRIBUTION NOTES:
+# 1. Android Release Signing:
+#    - To produce signed APK/AAB builds for Google Play or distribution, create an Android keystore
+#      and store base64-encoded keystore, alias, password, and key password in GitHub Repository Secrets
+#      (e.g., ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD).
+#    - Decode the keystore in CI before running `flutter build apk / appbundle`.
+#
+# 2. iOS Release Signing & App Store Distribution:
+#    - To produce signed iOS builds, add Apple Developer certificates and provisioning profiles
+#      via Apple App Store Connect API keys or fastlane match.
+#    - Pass `--codesign` and specify the target profile / certificate secrets in GitHub Secrets.
+
+name: Flutter Build & Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: flutter_app
+
+jobs:
+  android-build:
+    name: Build Android (APK & AAB)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart code
+        run: flutter analyze
+
+      - name: Run unit tests
+        run: flutter test
+
+      - name: Build Android APK (Release)
+        run: flutter build apk --release
+
+      - name: Build Android App Bundle (AAB Release)
+        run: flutter build appbundle --release
+
+      - name: Upload Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: microlend-android-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Release AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: microlend-android-aab
+          path: flutter_app/build/app/outputs/bundle/release/app-release.aab
+
+  ios-build:
+    name: Build iOS (Unsigned)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS App (Release, Unsigned)
+        run: flutter build ios --release --no-codesign
+
+      - name: Upload Unsigned iOS Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: microlend-ios-unsigned
+          path: flutter_app/build/ios/iphoneos
