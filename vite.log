@@ -1,0 +1,12 @@
+
+> microlend@1.0.0 dev
+> vite --port 5173
+
+
+  VITE v6.4.3  ready in 290 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+2:43:50 AM [vite] (client) hmr update /src/index.css, /src/components/Header.jsx, /src/pages/Dashboard.jsx, /src/pages/Borrowers.jsx, /src/pages/BorrowerDetail.jsx, /src/pages/Loans.jsx, /src/pages/LoanDetail.jsx
+2:45:26 AM [vite] (client) hmr update /src/index.css, /src/components/Header.jsx, /src/pages/Dashboard.jsx, /src/pages/Borrowers.jsx, /src/pages/BorrowerDetail.jsx, /src/pages/Loans.jsx, /src/pages/LoanDetail.jsx
+2:45:29 AM [vite] (client) page reload src/store/offlineStore.test.js
