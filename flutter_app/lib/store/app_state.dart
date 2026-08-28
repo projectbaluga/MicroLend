@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:flutter/material.dart';
 import '../models/borrower.dart';
 import '../models/loan.dart';
 import '../models/payment.dart';
@@ -7,10 +8,73 @@ import 'offline_store.dart';
 
 class AppState extends ChangeNotifier {
   final OfflineStore store;
-  bool isDarkMode = true;
   bool isSyncing = false;
 
-  AppState(this.store);
+  late String _currencyCode;
+  late String _dateFormat;
+  late int _defaultTermMonths;
+  late double _defaultInterestRate;
+  late ThemeMode _themeMode;
+
+  AppState(this.store) {
+    _loadSettings();
+  }
+
+  void _loadSettings() {
+    _currencyCode = store.getSetting('currencyCode', 'USD');
+    _dateFormat = store.getSetting('dateFormat', 'MMM d, yyyy');
+    _defaultTermMonths = int.tryParse(store.getSetting('defaultTermMonths', '6')) ?? 6;
+    _defaultInterestRate = double.tryParse(store.getSetting('defaultInterestRate', '12.0')) ?? 12.0;
+
+    LoanUtils.defaultCurrencyCode = _currencyCode;
+    LoanUtils.defaultDateFormat = _dateFormat;
+
+    final savedTheme = store.getSetting('themeMode', 'dark');
+    _themeMode = savedTheme == 'light' ? ThemeMode.light : ThemeMode.dark;
+  }
+
+  String get currencyCode => _currencyCode;
+  String get dateFormat => _dateFormat;
+  int get defaultTermMonths => _defaultTermMonths;
+  double get defaultInterestRate => _defaultInterestRate;
+  ThemeMode get themeMode => _themeMode;
+  bool get isDarkMode => _themeMode == ThemeMode.dark;
+
+  Future<void> setCurrencyCode(String code) async {
+    _currencyCode = code;
+    LoanUtils.defaultCurrencyCode = code;
+    await store.setSetting('currencyCode', code);
+    notifyListeners();
+  }
+
+  Future<void> setDateFormat(String format) async {
+    _dateFormat = format;
+    LoanUtils.defaultDateFormat = format;
+    await store.setSetting('dateFormat', format);
+    notifyListeners();
+  }
+
+  Future<void> setDefaultTermMonths(int months) async {
+    _defaultTermMonths = months;
+    await store.setSetting('defaultTermMonths', months.toString());
+    notifyListeners();
+  }
+
+  Future<void> setDefaultInterestRate(double rate) async {
+    _defaultInterestRate = rate;
+    await store.setSetting('defaultInterestRate', rate.toString());
+    notifyListeners();
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
+    await store.setSetting('themeMode', mode == ThemeMode.light ? 'light' : 'dark');
+    notifyListeners();
+  }
+
+  void toggleTheme() {
+    setThemeMode(isDarkMode ? ThemeMode.light : ThemeMode.dark);
+  }
 
   List<Borrower> get borrowers {
     return store
@@ -28,16 +92,30 @@ class AppState extends ChangeNotifier {
 
   int get pendingQueueCount => store.getQueue().length;
 
-  void toggleTheme() {
-    isDarkMode = !isDarkMode;
-    notifyListeners();
-  }
-
   Future<void> syncOfflineQueue() async {
     isSyncing = true;
     notifyListeners();
     await store.syncAll();
     isSyncing = false;
+    notifyListeners();
+  }
+
+  String exportDataJson() {
+    final data = {
+      'borrowers': store.getCollection('borrowers'),
+      'loans': store.getCollection('loans'),
+      'exportedAt': DateTime.now().toIso8601String(),
+    };
+    return const JsonEncoder.withIndent('  ').convert(data);
+  }
+
+  Future<void> clearAllData() async {
+    await store.clearAllData();
+    notifyListeners();
+  }
+
+  Future<void> restoreSampleData() async {
+    await store.seedInitialData(force: true);
     notifyListeners();
   }
 

@@ -5,6 +5,7 @@ import 'screens/borrowers_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/loan_detail_screen.dart';
 import 'screens/loans_screen.dart';
+import 'screens/settings_screen.dart';
 import 'store/app_state.dart';
 import 'store/offline_store.dart';
 
@@ -30,7 +31,7 @@ class MicroLendApp extends StatelessWidget {
     return MaterialApp(
       title: 'MicroLend',
       debugShowCheckedModeBanner: false,
-      themeMode: state.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      themeMode: state.themeMode,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
@@ -91,6 +92,8 @@ class _MainShellState extends State<MainShell> {
       title = 'Borrowers';
     } else if (_currentIndex == 2) {
       title = 'Loans';
+    } else if (_currentIndex == 3) {
+      title = 'Settings';
     }
 
     Widget content;
@@ -132,11 +135,14 @@ class _MainShellState extends State<MainShell> {
           );
           break;
         case 2:
-        default:
           content = LoansScreen(
             onSelectLoan: (id) => setState(() => _selectedLoanId = id),
             initialBorrowerId: _issueLoanBorrowerId,
           );
+          break;
+        case 3:
+        default:
+          content = const SettingsScreen();
           break;
       }
     }
@@ -178,6 +184,7 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _navigateToTab,
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
@@ -193,6 +200,11 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.credit_card_outlined),
             activeIcon: Icon(Icons.credit_card),
             label: 'Loans',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),

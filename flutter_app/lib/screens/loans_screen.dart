@@ -41,8 +41,8 @@ class _LoansScreenState extends State<LoansScreen> {
 
     String selectedBorrowerId = initialBorrowerId ?? borrowers.first.id;
     final principalCtrl = TextEditingController(text: '3000');
-    final rateCtrl = TextEditingController(text: '12');
-    final termCtrl = TextEditingController(text: '6');
+    final rateCtrl = TextEditingController(text: state.defaultInterestRate.toString());
+    final termCtrl = TextEditingController(text: state.defaultTermMonths.toString());
     final purposeCtrl = TextEditingController(text: 'Working Capital');
     final dateCtrl = TextEditingController(text: DateTime.now().toIso8601String().split('T')[0]);
     final notesCtrl = TextEditingController();
@@ -137,7 +137,7 @@ class _LoansScreenState extends State<LoansScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Est. Monthly Payment: ${LoanUtils.formatCurrency(schedPreview[0].amount)}',
+                            Text('Est. Monthly Payment: ${LoanUtils.formatCurrency(schedPreview[0].amount, state.currencyCode)}',
                                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           ],
                         ),
@@ -284,7 +284,7 @@ class _LoansScreenState extends State<LoansScreen> {
                               ],
                             ),
                             const SizedBox(height: 4),
-                            Text('${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal)} @ ${loan.interestRate}%',
+                            Text('${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)} @ ${loan.interestRate}%',
                                 style: const TextStyle(fontSize: 11, color: Colors.grey)),
                             const SizedBox(height: 8),
                             if (loan.status == 'pending')
@@ -304,7 +304,7 @@ class _LoansScreenState extends State<LoansScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Balance: ${LoanUtils.formatCurrency(stats.outstandingBalance)}',
+                                  Text('Balance: ${LoanUtils.formatCurrency(stats.outstandingBalance, state.currencyCode)}',
                                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                   Text('${stats.progressPct}% Paid',
                                       style: const TextStyle(fontSize: 11, color: Colors.grey)),
