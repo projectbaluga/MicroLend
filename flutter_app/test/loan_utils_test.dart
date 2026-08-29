@@ -190,5 +190,77 @@ void main() {
       expect(assessment.dtiPct, 10);
       expect(assessment.riskRating, 'low');
     });
+
+    test('DTI normalization converts daily repayment frequency to monthly debt (~30.4x)', () {
+      final borrower = Borrower(
+        id: 'b2',
+        fullName: 'Daily Borrower',
+        email: '',
+        phone: '',
+        address: '',
+        idNumber: '',
+        employment: '',
+        monthlyIncome: 3000.0,
+        creditScore: 75,
+        riskRating: 'low',
+        notes: '',
+      );
+
+      final dailyLoan = Loan(
+        id: 'daily_l1',
+        borrowerId: 'b2',
+        principal: 1000.0,
+        interestRate: 12.0,
+        termMonths: 0,
+        repaymentFrequency: 'daily',
+        termCount: 30,
+        purpose: 'Daily Test',
+        status: 'active',
+        disbursementDate: '2026-01-01',
+        schedule: [ScheduleInstallment(installmentNo: 1, dueDate: '2026-01-02', amount: 35.0, principal: 33.0, interest: 2.0, balance: 967.0)],
+        payments: [],
+        notes: '',
+      );
+
+      final assessment = LoanUtils.assessBorrower(borrower, [dailyLoan]);
+      // Daily 35.0 * 30.4167 = ~1064.58 monthly debt. DTI = 1064.58 / 3000 = ~35%
+      expect(assessment.monthlyDebt, closeTo(1064.58, 1.0));
+      expect(assessment.dtiPct, 35);
+    });
+  });
+
+  group('LoanUtils.computeEarlyPayoffAmount and validateLoanParams', () {
+    test('early payoff amount for reducing loan is less than sum of remaining scheduled installments', () {
+      final schedule = LoanUtils.generateSchedule(10000.0, 12.0, 12, '2026-01-01');
+      final loan = Loan(
+        id: 'reducing_early_payoff',
+        borrowerId: 'b1',
+        principal: 10000.0,
+        interestRate: 12.0,
+        termMonths: 12,
+        repaymentFrequency: 'monthly',
+        interestMethod: 'reducing',
+        termCount: 12,
+        purpose: 'Early Payoff Test',
+        status: 'active',
+        disbursementDate: '2026-01-01',
+        schedule: schedule,
+        payments: [],
+        notes: '',
+      );
+
+      final stats = LoanUtils.getLoanStats(loan, DateTime.parse('2026-01-15'));
+      // Total scheduled includes 12 months of interest (~10,661.85). Early payoff at day 14 should be ~10,040 (principal + 14 days interest)
+      expect(stats.payoffAmount, lessThan(stats.totalScheduled));
+      expect(stats.payoffAmount, greaterThan(10000.0));
+    });
+
+    test('validateLoanParams rejects negative interest, negative penalty, and excessive tenure', () {
+      expect(LoanUtils.validateLoanParams(principal: -100, interestRate: 10, termCount: 6, repaymentFrequency: 'monthly', penaltyValue: 0), isNotNull);
+      expect(LoanUtils.validateLoanParams(principal: 1000, interestRate: -5, termCount: 6, repaymentFrequency: 'monthly', penaltyValue: 0), isNotNull);
+      expect(LoanUtils.validateLoanParams(principal: 1000, interestRate: 10, termCount: 6, repaymentFrequency: 'monthly', penaltyValue: -10), isNotNull);
+      expect(LoanUtils.validateLoanParams(principal: 1000, interestRate: 10, termCount: 100, repaymentFrequency: 'monthly', penaltyValue: 0), isNotNull);
+      expect(LoanUtils.validateLoanParams(principal: 1000, interestRate: 10, termCount: 12, repaymentFrequency: 'monthly', penaltyValue: 0), isNull);
+    });
   });
 }

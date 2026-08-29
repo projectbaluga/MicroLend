@@ -300,7 +300,32 @@ class LoanDetailScreen extends StatelessWidget {
                       if (canApproveThisLoan)
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
-                          onPressed: () => state.approveLoan(loan.id),
+                          onPressed: () async {
+                            if (loan.creditAssessment?.riskRating == 'high') {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('High Risk Loan Warning'),
+                                  content: Text(
+                                    'Borrower "${borrower.fullName}" is rated HIGH RISK (DTI ${loan.creditAssessment?.dtiPct ?? 0}%).\n\nAre you sure you want to approve this loan with explicit override?',
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Approve Override', style: TextStyle(color: Colors.white)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                state.approveLoan(loan.id, overrideHighRisk: true);
+                              }
+                            } else {
+                              state.approveLoan(loan.id);
+                            }
+                          },
                           icon: const Icon(Icons.check, size: 16, color: Colors.white),
                           label: const Text('Approve', style: TextStyle(color: Colors.white)),
                         ),
@@ -434,6 +459,13 @@ class LoanDetailScreen extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text('Total Due with Penalty: ${LoanUtils.formatCurrency(stats.totalDueWithPenalty, state.currencyCode)}',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                  ],
+                  if (loan.status == 'active' && loan.interestMethod == 'reducing') ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Early Payoff Settlement: ${LoanUtils.formatCurrency(stats.payoffAmount, state.currencyCode)}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+                    ),
                   ],
                   if (stats.creditBalance > 0) ...[
                     const SizedBox(height: 10),
