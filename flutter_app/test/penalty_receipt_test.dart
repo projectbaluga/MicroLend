@@ -88,6 +88,8 @@ void main() {
         employment: 'Self-employed',
         monthlyIncome: 15000.0,
         creditScore: 80,
+        riskRating: 'low',
+        notes: '',
       );
 
       final loan = Loan(

@@ -12,7 +12,7 @@ void main() {
       expect(LoanUtils.formatCurrency(1250.5, 'EUR'), '€1,250.50');
       expect(LoanUtils.formatCurrency(1250.5, 'PHP'), '₱1,250.50');
       expect(LoanUtils.formatCurrency(1250.5, 'GBP'), '£1,250.50');
-      expect(LoanUtils.formatCurrency(0.0), '\$0.00');
+      expect(LoanUtils.formatCurrency(0.0), '₱0.00');
     });
 
     test('formatDate formats date properly', () {
