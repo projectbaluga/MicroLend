@@ -5,6 +5,7 @@ import 'screens/borrowers_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/loan_detail_screen.dart';
 import 'screens/loans_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
 import 'store/app_state.dart';
 import 'store/offline_store.dart';
@@ -53,7 +54,7 @@ class MicroLendApp extends StatelessWidget {
           primary: Colors.white,
         ),
       ),
-      home: const MainShell(),
+      home: state.isLoggedIn ? const MainShell() : const LoginScreen(),
     );
   }
 }
@@ -191,6 +192,31 @@ class _MainShellState extends State<MainShell> {
       appBar: AppBar(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
+          if (state.currentUser != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.person, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${state.currentUser!.username} (${state.currentUser!.role})',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout, size: 20),
+              onPressed: state.logout,
+              tooltip: 'Sign Out',
+            ),
+          ],
           // Theme toggle
           IconButton(
             icon: Icon(state.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),

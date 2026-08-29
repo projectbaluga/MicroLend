@@ -22,6 +22,7 @@ class Loan {
   final List<ScheduleInstallment> schedule;
   final List<Payment> payments;
   final String notes;
+  final String? createdBy;
   final String? createdAt;
   final String? updatedAt;
 
@@ -45,6 +46,7 @@ class Loan {
     required this.schedule,
     required this.payments,
     required this.notes,
+    this.createdBy,
     this.createdAt,
     this.updatedAt,
   }) : termCount = termCount ?? termMonths;
@@ -79,6 +81,7 @@ class Loan {
           ? (map['payments'] as List).map((e) => Payment.fromMap(Map<String, dynamic>.from(e))).toList()
           : [],
       notes: map['notes']?.toString() ?? '',
+      createdBy: map['created_by']?.toString() ?? map['createdBy']?.toString(),
       createdAt: map['createdAt']?.toString(),
       updatedAt: map['updatedAt']?.toString(),
     );
@@ -105,6 +108,7 @@ class Loan {
       'schedule': schedule.map((e) => e.toMap()).toList(),
       'payments': payments.map((e) => e.toMap()).toList(),
       'notes': notes,
+      if (createdBy != null) 'created_by': createdBy,
       if (createdAt != null) 'createdAt': createdAt,
       if (updatedAt != null) 'updatedAt': updatedAt,
     };
@@ -130,6 +134,7 @@ class Loan {
     List<ScheduleInstallment>? schedule,
     List<Payment>? payments,
     String? notes,
+    String? createdBy,
     String? createdAt,
     String? updatedAt,
   }) {
@@ -153,6 +158,7 @@ class Loan {
       schedule: schedule ?? this.schedule,
       payments: payments ?? this.payments,
       notes: notes ?? this.notes,
+      createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

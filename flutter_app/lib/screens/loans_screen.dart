@@ -403,11 +403,12 @@ class _LoansScreenState extends State<LoansScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Loans Portfolio', style: TextStyle(fontSize: isDesktop ? 20 : 18, fontWeight: FontWeight.bold)),
-                ElevatedButton.icon(
-                  onPressed: () => _showNewLoanDialog(context),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('New Loan'),
-                ),
+                if (state.currentUser != null && state.currentUser!.role != 'viewer')
+                  ElevatedButton.icon(
+                    onPressed: () => _showNewLoanDialog(context),
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('New Loan'),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -470,15 +471,22 @@ class _LoansScreenState extends State<LoansScreen> {
                               if (loan.status == 'pending')
                                 Align(
                                   alignment: Alignment.centerRight,
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF059669),
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    ),
-                                    onPressed: () => state.approveLoan(loan.id),
-                                    icon: const Icon(Icons.check, size: 14, color: Colors.white),
-                                    label: const Text('Approve', style: TextStyle(fontSize: 11, color: Colors.white)),
-                                  ),
+                                  child: (state.currentUser?.role == 'approver' && loan.createdBy != state.currentUser?.id)
+                                      ? ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF059669),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          ),
+                                          onPressed: () => state.approveLoan(loan.id),
+                                          icon: const Icon(Icons.check, size: 14, color: Colors.white),
+                                          label: const Text('Approve', style: TextStyle(fontSize: 11, color: Colors.white)),
+                                        )
+                                      : Text(
+                                          loan.createdBy == state.currentUser?.id
+                                              ? 'Awaiting Approval (Creator)'
+                                              : 'Awaiting Approver',
+                                          style: const TextStyle(fontSize: 11, color: Colors.orangeAccent),
+                                        ),
                                 )
                               else
                                 Row(
