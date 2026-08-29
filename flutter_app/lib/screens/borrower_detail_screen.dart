@@ -5,6 +5,7 @@ import '../utils/loan_utils.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/app_progress_bar.dart';
 import '../widgets/custom_card.dart';
+import '../widgets/responsive_container.dart';
 
 class BorrowerDetailScreen extends StatelessWidget {
   final String borrowerId;
@@ -55,10 +56,11 @@ class BorrowerDetailScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Contact Info Card
+        child: ResponsiveContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Contact Info Card
             CustomCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,6 +220,7 @@ class BorrowerDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

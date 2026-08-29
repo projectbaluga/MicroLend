@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../store/app_state.dart';
 import '../store/backup_service.dart';
 import '../widgets/custom_card.dart';
+import '../widgets/responsive_container.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -80,35 +81,38 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = Provider.of<AppState>(context);
 
+    final isDesktop = ResponsiveContainer.isDesktop(context);
+
     return Scaffold(
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Settings',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            // Appearance Section
-            CustomCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Appearance', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Dark Mode', style: TextStyle(fontSize: 13)),
-                    subtitle: const Text('Use dark theme palette', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    value: state.isDarkMode,
-                    onChanged: (val) => state.setThemeMode(val ? ThemeMode.dark : ThemeMode.light),
-                  ),
-                ],
+        child: ResponsiveContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Settings',
+                style: TextStyle(fontSize: isDesktop ? 20 : 18, fontWeight: FontWeight.bold),
               ),
-            ),
+              const SizedBox(height: 12),
+
+              // Appearance Section
+              CustomCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Appearance', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Dark Mode', style: TextStyle(fontSize: 13)),
+                      subtitle: const Text('Use dark theme palette', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      value: state.isDarkMode,
+                      onChanged: (val) => state.setThemeMode(val ? ThemeMode.dark : ThemeMode.light),
+                    ),
+                  ],
+                ),
+              ),
 
             const SizedBox(height: 16),
 
@@ -360,6 +364,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

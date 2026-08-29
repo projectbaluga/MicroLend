@@ -6,6 +6,7 @@ import '../utils/loan_utils.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/app_progress_bar.dart';
 import '../widgets/custom_card.dart';
+import '../widgets/responsive_container.dart';
 
 class LoanDetailScreen extends StatelessWidget {
   final String loanId;
@@ -131,10 +132,11 @@ class LoanDetailScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status Transitions Bar
+        child: ResponsiveContainer(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Status Transitions Bar
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -348,6 +350,7 @@ class LoanDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

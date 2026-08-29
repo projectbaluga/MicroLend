@@ -5,6 +5,7 @@ import '../store/app_state.dart';
 import '../utils/loan_utils.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/custom_card.dart';
+import '../widgets/responsive_container.dart';
 
 class BorrowersScreen extends StatefulWidget {
   final Function(String) onSelectBorrower;
@@ -189,95 +190,99 @@ class _BorrowersScreenState extends State<BorrowersScreen> {
       return matchesSearch && matchesRisk;
     }).toList();
 
+    final isDesktop = ResponsiveContainer.isDesktop(context);
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Borrowers', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ElevatedButton.icon(
-                onPressed: () => _showAddBorrowerDialog(context),
-                icon: const Icon(Icons.person_add, size: 16),
-                label: const Text('Add Borrower'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'Search by name, email, phone...',
-                    prefixIcon: Icon(Icons.search, size: 18),
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  onChanged: (val) => setState(() => _searchTerm = val),
+      child: ResponsiveContainer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Borrowers', style: TextStyle(fontSize: isDesktop ? 20 : 18, fontWeight: FontWeight.bold)),
+                ElevatedButton.icon(
+                  onPressed: () => _showAddBorrowerDialog(context),
+                  icon: const Icon(Icons.person_add, size: 16),
+                  label: const Text('Add Borrower'),
                 ),
-              ),
-              const SizedBox(width: 8),
-              DropdownButton<String>(
-                value: _riskFilter,
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All Risk')),
-                  DropdownMenuItem(value: 'low', child: Text('Low Risk')),
-                  DropdownMenuItem(value: 'medium', child: Text('Medium Risk')),
-                  DropdownMenuItem(value: 'high', child: Text('High Risk')),
-                ],
-                onChanged: (val) => setState(() => _riskFilter = val ?? 'all'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: filtered.isEmpty
-                ? const Center(child: Text('No borrowers found.'))
-                : ListView.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, idx) {
-                      final b = filtered[idx];
-                      final bLoans = loans.where((l) => l.borrowerId == b.id).toList();
-                      final assessment = LoanUtils.assessBorrower(b, bLoans);
-
-                      return CustomCard(
-                        onTap: () => widget.onSelectBorrower(b.id),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(b.fullName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                                AppBadge(text: assessment.riskRating, variant: assessment.riskRating),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${b.email.isNotEmpty ? b.email : b.phone} • Income: ${LoanUtils.formatCurrency(b.monthlyIncome)}',
-                              style: const TextStyle(fontSize: 11, color: Colors.grey),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Credit Score: ${assessment.creditScore}/100',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                Text('${bLoans.length} loan(s)',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Search by name, email, phone...',
+                      prefixIcon: Icon(Icons.search, size: 18),
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                    onChanged: (val) => setState(() => _searchTerm = val),
                   ),
-          ),
-        ],
+                ),
+                const SizedBox(width: 8),
+                DropdownButton<String>(
+                  value: _riskFilter,
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All Risk')),
+                    DropdownMenuItem(value: 'low', child: Text('Low Risk')),
+                    DropdownMenuItem(value: 'medium', child: Text('Medium Risk')),
+                    DropdownMenuItem(value: 'high', child: Text('High Risk')),
+                  ],
+                  onChanged: (val) => setState(() => _riskFilter = val ?? 'all'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(child: Text('No borrowers found.', style: TextStyle(fontSize: isDesktop ? 14 : 12)))
+                  : ListView.separated(
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, idx) {
+                        final b = filtered[idx];
+                        final bLoans = loans.where((l) => l.borrowerId == b.id).toList();
+                        final assessment = LoanUtils.assessBorrower(b, bLoans);
+
+                        return CustomCard(
+                          onTap: () => widget.onSelectBorrower(b.id),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(b.fullName, style: TextStyle(fontSize: isDesktop ? 15 : 14, fontWeight: FontWeight.bold)),
+                                  AppBadge(text: assessment.riskRating, variant: assessment.riskRating),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${b.email.isNotEmpty ? b.email : b.phone} • Income: ${LoanUtils.formatCurrency(b.monthlyIncome)}',
+                                style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Credit Score: ${assessment.creditScore}/100',
+                                      style: TextStyle(fontSize: isDesktop ? 12 : 11, fontWeight: FontWeight.bold)),
+                                  Text('${bLoans.length} loan(s)',
+                                      style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
