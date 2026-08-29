@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:microlend/models/credit_assessment.dart';
 import 'package:microlend/models/loan.dart';
 import 'package:microlend/models/payment.dart';
 import 'package:microlend/models/schedule_installment.dart';
@@ -271,6 +272,49 @@ void main() {
       expect(content.contains("_quickFill"), isFalse);
     });
 
+    test('high risk loan blocks approval unless overrideHighRisk is true', () async {
+      await appState.createUser('officer_hr', 'officer123', 'officer');
+      await appState.login('officer_hr', 'officer123');
+
+      final highRiskAssessment = CreditAssessment(
+        creditScore: 30,
+        baseCreditScore: 30,
+        dtiPct: 75,
+        riskRating: 'high',
+        monthlyDebt: 3000.0,
+        completedCount: 0,
+        defaultedCount: 1,
+        activeCount: 1,
+      );
+
+      final highRiskLoan = Loan(
+        id: 'high_risk_loan_1',
+        borrowerId: 'b1',
+        principal: 5000.0,
+        interestRate: 15.0,
+        termMonths: 6,
+        purpose: 'High Risk Test',
+        status: 'pending',
+        disbursementDate: '2026-01-01',
+        creditAssessment: highRiskAssessment,
+        schedule: [],
+        payments: [],
+        notes: '',
+      );
+
+      await appState.addLoan(highRiskLoan);
+
+      await appState.login('admin', 'admin123');
+
+      // Approving without override throws StateError
+      expect(() => appState.approveLoan('high_risk_loan_1'), throwsStateError);
+
+      // Approving with override succeeds
+      await appState.approveLoan('high_risk_loan_1', overrideHighRisk: true);
+      final approved = appState.loans.firstWhere((l) => l.id == 'high_risk_loan_1');
+      expect(approved.status, 'active');
+    });
+
     test('completion accounts for penalties and overpayment produces credit balance', () async {
       await appState.createUser('officer_pay', 'officer123', 'officer');
       await appState.login('officer_pay', 'officer123');
@@ -321,7 +365,7 @@ void main() {
       expect(updatedLoan.status, 'completed');
 
       final stats = LoanUtils.getLoanStats(updatedLoan);
-      expect(stats.creditBalance, 100.0);
+      expect(stats.creditBalance, 50.0);
     });
   });
 }

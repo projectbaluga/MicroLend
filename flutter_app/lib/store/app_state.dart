@@ -343,7 +343,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> approveLoan(String loanId) async {
+  Future<void> approveLoan(String loanId, {bool overrideHighRisk = false}) async {
     if (_currentUser == null || _currentUser!.role != 'approver') {
       throw StateError('Unauthorized: Only approvers can approve loans.');
     }
@@ -355,6 +355,10 @@ class AppState extends ChangeNotifier {
 
     if (loan.createdBy != null && loan.createdBy == _currentUser!.id) {
       throw StateError('Unauthorized: Separation of duties violation. Loan creator cannot approve their own loan.');
+    }
+
+    if (loan.creditAssessment?.riskRating == 'high' && !overrideHighRisk) {
+      throw StateError('HighRiskLoan: Borrower is rated HIGH RISK (DTI ${loan.creditAssessment?.dtiPct ?? 0}%). Explicit override required to approve.');
     }
 
     final disbursementDate = loan.disbursementDate.isNotEmpty
@@ -401,7 +405,12 @@ class AppState extends ChangeNotifier {
 
     final existingLoan = loans.firstWhere((l) => l.id == loanId);
     final statsBefore = LoanUtils.getLoanStats(existingLoan);
-    final totalRequired = LoanUtils.round2(statsBefore.totalScheduled + statsBefore.penaltyAmount);
+    final accruedPenaltyNow = statsBefore.penaltyAmount;
+    final totalRequired = LoanUtils.round2(statsBefore.totalScheduled + accruedPenaltyNow);
+
+    if (accruedPenaltyNow > existingLoan.accruedPenalty) {
+      await store.updateItem('loans', loanId, {'accrued_penalty': accruedPenaltyNow});
+    }
 
     final updatedLoanMap = await store.appendToItemArray(
       'loans',

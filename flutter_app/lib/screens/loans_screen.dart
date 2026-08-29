@@ -55,6 +55,7 @@ class _LoansScreenState extends State<LoansScreen> {
 
     String deductionType = 'none'; // 'none', 'fixed', 'percent'
     final deductionValueCtrl = TextEditingController(text: '0');
+    String? validationError;
 
     showModalBottomSheet(
       context: context,
@@ -275,6 +276,10 @@ class _LoansScreenState extends State<LoansScreen> {
                       onChanged: (_) => setModalState(() {}),
                     ),
                     const SizedBox(height: 10),
+                    if (validationError != null) ...[
+                      Text(validationError!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                      const SizedBox(height: 8),
+                    ],
                     if (p > 0) ...[
                       Container(
                         padding: const EdgeInsets.all(10),
@@ -317,7 +322,20 @@ class _LoansScreenState extends State<LoansScreen> {
                         const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: () {
-                            if (p <= 0 || t <= 0) return;
+                            final penVal = double.tryParse(penaltyValueCtrl.text.trim()) ?? 0.0;
+                            final err = LoanUtils.validateLoanParams(
+                              principal: p,
+                              interestRate: r,
+                              termCount: t,
+                              repaymentFrequency: selectedFrequency,
+                              penaltyValue: penVal,
+                            );
+
+                            if (err != null) {
+                              setModalState(() => validationError = err);
+                              return;
+                            }
+
                             final selectedB = borrowers.firstWhere((b) => b.id == selectedBorrowerId);
                             final bLoans = state.loans.where((l) => l.borrowerId == selectedBorrowerId).toList();
                             final assessment = LoanUtils.assessBorrower(selectedB, bLoans);
@@ -330,8 +348,6 @@ class _LoansScreenState extends State<LoansScreen> {
                               repaymentFrequency: selectedFrequency,
                               interestMethod: selectedMethod,
                             );
-
-                            final penVal = double.tryParse(penaltyValueCtrl.text.trim()) ?? 0.0;
 
                             final newLoan = Loan(
                               id: 'loan_${DateTime.now().millisecondsSinceEpoch}',
@@ -477,7 +493,32 @@ class _LoansScreenState extends State<LoansScreen> {
                                             backgroundColor: const Color(0xFF059669),
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           ),
-                                          onPressed: () => state.approveLoan(loan.id),
+                                      onPressed: () async {
+                                        if (loan.creditAssessment?.riskRating == 'high') {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Text('High Risk Loan Warning'),
+                                              content: Text(
+                                                'Borrower "${b?.fullName ?? ''}" is rated HIGH RISK (DTI ${loan.creditAssessment?.dtiPct ?? 0}%).\n\nAre you sure you want to approve this loan with explicit override?',
+                                              ),
+                                              actions: [
+                                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                                ElevatedButton(
+                                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+                                                  onPressed: () => Navigator.pop(ctx, true),
+                                                  child: const Text('Approve Override', style: TextStyle(color: Colors.white)),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                          if (confirm == true) {
+                                            state.approveLoan(loan.id, overrideHighRisk: true);
+                                          }
+                                        } else {
+                                          state.approveLoan(loan.id);
+                                        }
+                                      },
                                           icon: const Icon(Icons.check, size: 14, color: Colors.white),
                                           label: const Text('Approve', style: TextStyle(fontSize: 11, color: Colors.white)),
                                         )

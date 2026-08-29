@@ -15,6 +15,7 @@ class LoanStats {
   final double penaltyAmount;
   final double totalDueWithPenalty;
   final double creditBalance;
+  final double payoffAmount;
   final int progressPct;
   final ScheduleInstallment? nextDue;
   final List<ScheduleInstallment> scheduleWithStatus;
@@ -28,6 +29,7 @@ class LoanStats {
     required this.penaltyAmount,
     required this.totalDueWithPenalty,
     this.creditBalance = 0.0,
+    required this.payoffAmount,
     required this.progressPct,
     this.nextDue,
     required this.scheduleWithStatus,
@@ -141,6 +143,7 @@ class LoanUtils {
     final List<ScheduleInstallment> schedule = [];
 
     if (interestMethod == 'flat') {
+      // Note: Flat/Add-on ("5-6") interest is intentionally period-independent (total interest = principal * rate / 100) regardless of term length.
       final totalInterest = p * (rate / 100.0);
       final principalPerPeriod = p / n;
       final interestPerPeriod = totalInterest / n;
@@ -213,6 +216,7 @@ class LoanUtils {
     }
 
     if (interestMethod == 'one_time') {
+      // Note: One-time payment interest is intentionally period-independent.
       final dueDate = calculateDueDate(startDate, repaymentFrequency, 1);
       final dueDateStr = DateFormat('yyyy-MM-dd').format(dueDate);
       final totalInterest = p * (rate / 100.0);
@@ -342,23 +346,106 @@ class LoanUtils {
   static double calculatePenalty(Loan loan, List<ScheduleInstallment> scheduleWithStatus, DateTime referenceDate) {
     final type = loan.penaltyType;
     final val = max(0.0, loan.penaltyValue);
-    if (type == 'none' || val == 0.0) return 0.0;
+    final accrued = max(0.0, loan.accruedPenalty);
+
+    if (type == 'none' || val == 0.0) return accrued;
 
     final overdueInsts = scheduleWithStatus.where((inst) => inst.status == 'overdue').toList();
-    if (overdueInsts.isEmpty) return 0.0;
 
-    double totalPenalty = 0.0;
-    if (type == 'percent_per_period') {
-      for (final inst in overdueInsts) {
-        totalPenalty += inst.remainingAmount * (val / 100.0);
+    double newlyIncurred = 0.0;
+    if (overdueInsts.isNotEmpty) {
+      if (type == 'percent_per_period') {
+        for (final inst in overdueInsts) {
+          newlyIncurred += inst.remainingAmount * (val / 100.0);
+        }
+      } else if (type == 'fixed_per_period') {
+        newlyIncurred = val * overdueInsts.length;
+      } else if (type == 'fixed_once') {
+        // fixed_once applies at most once over the life of the loan
+        newlyIncurred = accrued > 0 ? 0.0 : val;
       }
-    } else if (type == 'fixed_per_period') {
-      totalPenalty = val * overdueInsts.length;
-    } else if (type == 'fixed_once') {
-      totalPenalty = val;
     }
 
-    return round2(totalPenalty);
+    return round2(accrued + newlyIncurred);
+  }
+
+  static double computeEarlyPayoffAmount(Loan loan, [DateTime? asOfDate]) {
+    final stats = getLoanStats(loan, asOfDate);
+    if (loan.interestMethod != 'reducing') {
+      return stats.totalDueWithPenalty;
+    }
+
+    double remainingPrincipal = 0.0;
+    for (final inst in stats.scheduleWithStatus) {
+      if (inst.status != 'paid') {
+        final paidPct = inst.amount > 0 ? (inst.paidAmount / inst.amount) : 0.0;
+        final unpaidPrin = inst.principal * (1.0 - paidPct);
+        remainingPrincipal += unpaidPrin;
+      }
+    }
+    remainingPrincipal = round2(remainingPrincipal);
+
+    if (remainingPrincipal <= 0) {
+      return round2(stats.penaltyAmount);
+    }
+
+    DateTime lastDate;
+    try {
+      if (loan.payments.isNotEmpty) {
+        lastDate = DateTime.parse(loan.payments.last.date);
+      } else if (loan.disbursementDate.isNotEmpty) {
+        lastDate = DateTime.parse(loan.disbursementDate);
+      } else {
+        lastDate = DateTime.now();
+      }
+    } catch (_) {
+      lastDate = DateTime.now();
+    }
+
+    final refDate = asOfDate ?? DateTime.now();
+    final daysElapsed = max(0, refDate.difference(lastDate).inDays);
+
+    final dailyRate = (loan.interestRate / 100.0) / 365.0;
+    final accruedInterest = round2(remainingPrincipal * dailyRate * daysElapsed);
+
+    final payoff = round2(remainingPrincipal + accruedInterest + stats.penaltyAmount);
+    return min(payoff, stats.totalDueWithPenalty);
+  }
+
+  static String? validateLoanParams({
+    required double principal,
+    required double interestRate,
+    required int termCount,
+    required String repaymentFrequency,
+    required double penaltyValue,
+  }) {
+    if (principal <= 0) return 'Principal must be greater than 0.';
+    if (principal > 10000000) return 'Principal exceeds maximum allowed limit (₱10,000,000).';
+    if (interestRate < 0 || interestRate > 100) return 'Interest rate must be between 0% and 100%.';
+    if (penaltyValue < 0) return 'Penalty value cannot be negative.';
+
+    int maxTerms = 60;
+    switch (repaymentFrequency) {
+      case 'daily':
+        maxTerms = 365;
+        break;
+      case 'weekly':
+        maxTerms = 104;
+        break;
+      case 'biweekly':
+        maxTerms = 52;
+        break;
+      case 'monthly':
+      default:
+        maxTerms = 60;
+        break;
+    }
+
+    if (termCount <= 0 || termCount > maxTerms) {
+      return 'Term count for $repaymentFrequency frequency must be between 1 and $maxTerms.';
+    }
+
+    return null;
   }
 
   static LoanStats getLoanStats(Loan loan, [DateTime? referenceDate]) {
@@ -404,6 +491,43 @@ class LoanUtils {
     final totalRequired = round2(totalScheduled + penaltyAmount);
     final creditBalance = totalPaid > totalRequired ? round2(totalPaid - totalRequired) : 0.0;
 
+    // Compute early payoff figure
+    double payoff = totalDueWithPenalty;
+    if (loan.interestMethod == 'reducing') {
+      double remainingPrincipal = 0.0;
+      for (final inst in scheduleWithStatus) {
+        if (inst.status != 'paid') {
+          final paidPct = inst.amount > 0 ? (inst.paidAmount / inst.amount) : 0.0;
+          final unpaidPrin = inst.principal * (1.0 - paidPct);
+          remainingPrincipal += unpaidPrin;
+        }
+      }
+      remainingPrincipal = round2(remainingPrincipal);
+
+      if (remainingPrincipal <= 0) {
+        payoff = round2(penaltyAmount);
+      } else {
+        DateTime lastDate;
+        try {
+          if (loan.payments.isNotEmpty) {
+            lastDate = DateTime.parse(loan.payments.last.date);
+          } else if (loan.disbursementDate.isNotEmpty) {
+            lastDate = DateTime.parse(loan.disbursementDate);
+          } else {
+            lastDate = DateTime.now();
+          }
+        } catch (_) {
+          lastDate = DateTime.now();
+        }
+
+        final daysElapsed = max(0, refDate.difference(lastDate).inDays);
+        final dailyRate = (loan.interestRate / 100.0) / 365.0;
+        final accruedInterest = round2(remainingPrincipal * dailyRate * daysElapsed);
+
+        payoff = min(round2(remainingPrincipal + accruedInterest + penaltyAmount), totalDueWithPenalty);
+      }
+    }
+
     return LoanStats(
       totalDisbursed: netDisbursed,
       totalScheduled: round2(totalScheduled),
@@ -413,6 +537,7 @@ class LoanUtils {
       penaltyAmount: penaltyAmount,
       totalDueWithPenalty: totalDueWithPenalty,
       creditBalance: creditBalance,
+      payoffAmount: payoff,
       progressPct: progressPct,
       nextDue: nextDue,
       scheduleWithStatus: scheduleWithStatus,
@@ -427,11 +552,31 @@ class LoanUtils {
     double monthlyDebt = 0.0;
 
     for (final loan in activeLoans) {
+      double periodAmount = 0.0;
       if (loan.schedule.isNotEmpty) {
-        monthlyDebt += loan.schedule[0].amount;
-      } else if (loan.principal > 0 && loan.termMonths > 0) {
-        monthlyDebt += loan.principal / loan.termMonths;
+        periodAmount = loan.schedule[0].amount;
+      } else if (loan.principal > 0 && loan.termCount > 0) {
+        periodAmount = loan.principal / loan.termCount;
       }
+
+      double multiplier = 1.0;
+      switch (loan.repaymentFrequency) {
+        case 'daily':
+          multiplier = 30.4167; // 365 / 12
+          break;
+        case 'weekly':
+          multiplier = 4.3333; // 52 / 12
+          break;
+        case 'biweekly':
+          multiplier = 2.1667; // 26 / 12
+          break;
+        case 'monthly':
+        default:
+          multiplier = 1.0;
+          break;
+      }
+
+      monthlyDebt += periodAmount * multiplier;
     }
 
     final dtiPct = monthlyIncome > 0
