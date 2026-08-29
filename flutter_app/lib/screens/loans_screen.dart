@@ -41,6 +41,9 @@ class _LoansScreenState extends State<LoansScreen> {
     if (borrowers.isEmpty) return;
 
     String selectedBorrowerId = initialBorrowerId ?? borrowers.first.id;
+    String selectedFrequency = state.defaultRepaymentFrequency;
+    String selectedMethod = state.defaultInterestMethod;
+
     final principalCtrl = TextEditingController(text: '3000');
     final rateCtrl = TextEditingController(text: state.defaultInterestRate.toString());
     final termCtrl = TextEditingController(text: state.defaultTermMonths.toString());
@@ -66,8 +69,35 @@ class _LoansScreenState extends State<LoansScreen> {
             final netDisbursed = LoanUtils.calculateNetDisbursed(p, deductionType, dVal);
 
             final schedPreview = (p > 0 && t > 0)
-                ? LoanUtils.generateSchedule(p, r, t, dateCtrl.text.trim())
+                ? LoanUtils.generateSchedule(
+                    p,
+                    r,
+                    t,
+                    dateCtrl.text.trim(),
+                    repaymentFrequency: selectedFrequency,
+                    interestMethod: selectedMethod,
+                  )
                 : [];
+
+            String termLabel = 'Term (months)';
+            switch (selectedFrequency) {
+              case 'daily':
+                termLabel = 'Term (days)';
+                break;
+              case 'weekly':
+                termLabel = 'Term (weeks)';
+                break;
+              case 'biweekly':
+                termLabel = 'Term (bi-weeks)';
+                break;
+              case 'monthly':
+              default:
+                termLabel = 'Term (months)';
+                break;
+            }
+
+            final totalScheduled = schedPreview.fold(0.0, (sum, inst) => sum + inst.amount);
+            final totalInterest = schedPreview.fold(0.0, (sum, inst) => sum + inst.interest);
 
             return Padding(
               padding: EdgeInsets.only(
@@ -97,6 +127,42 @@ class _LoansScreenState extends State<LoansScreen> {
                     Row(
                       children: [
                         Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: selectedFrequency,
+                            decoration: const InputDecoration(labelText: 'Frequency', border: OutlineInputBorder()),
+                            items: const [
+                              DropdownMenuItem(value: 'daily', child: Text('Daily')),
+                              DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                              DropdownMenuItem(value: 'biweekly', child: Text('Bi-weekly')),
+                              DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) setModalState(() => selectedFrequency = val);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: selectedMethod,
+                            decoration: const InputDecoration(labelText: 'Interest Method', border: OutlineInputBorder()),
+                            items: const [
+                              DropdownMenuItem(value: 'reducing', child: Text('Reducing Balance')),
+                              DropdownMenuItem(value: 'flat', child: Text('Flat / Add-on ("5-6")')),
+                              DropdownMenuItem(value: 'interest_only', child: Text('Interest-Only')),
+                              DropdownMenuItem(value: 'one_time', child: Text('One-Time Payment')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) setModalState(() => selectedMethod = val);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
                           child: TextField(
                             controller: principalCtrl,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -118,7 +184,7 @@ class _LoansScreenState extends State<LoansScreen> {
                           child: TextField(
                             controller: termCtrl,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Term (mo) *', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: '$termLabel *', border: const OutlineInputBorder()),
                             onChanged: (_) => setModalState(() {}),
                           ),
                         ),
@@ -191,9 +257,13 @@ class _LoansScreenState extends State<LoansScreen> {
                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
                               const SizedBox(height: 4),
                             ],
-                            if (schedPreview.isNotEmpty)
-                              Text('Est. Monthly Repayment: ${LoanUtils.formatCurrency(schedPreview[0].amount, state.currencyCode)}',
+                            if (schedPreview.isNotEmpty) ...[
+                              Text('Installments: ${schedPreview.length} period(s) @ ${LoanUtils.formatCurrency(schedPreview[0].amount, state.currencyCode)} / period',
                                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text('Total Interest: ${LoanUtils.formatCurrency(totalInterest, state.currencyCode)} • Total Repayable: ${LoanUtils.formatCurrency(totalScheduled, state.currencyCode)}',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            ],
                           ],
                         ),
                       ),
@@ -216,14 +286,24 @@ class _LoansScreenState extends State<LoansScreen> {
                             final bLoans = state.loans.where((l) => l.borrowerId == selectedBorrowerId).toList();
                             final assessment = LoanUtils.assessBorrower(selectedB, bLoans);
 
-                            final sched = LoanUtils.generateSchedule(p, r, t, dateCtrl.text.trim());
+                            final sched = LoanUtils.generateSchedule(
+                              p,
+                              r,
+                              t,
+                              dateCtrl.text.trim(),
+                              repaymentFrequency: selectedFrequency,
+                              interestMethod: selectedMethod,
+                            );
 
                             final newLoan = Loan(
                               id: 'loan_${DateTime.now().millisecondsSinceEpoch}',
                               borrowerId: selectedBorrowerId,
                               principal: p,
                               interestRate: r,
-                              termMonths: t,
+                              termMonths: selectedFrequency == 'monthly' ? t : 0,
+                              repaymentFrequency: selectedFrequency,
+                              interestMethod: selectedMethod,
+                              termCount: t,
                               purpose: purposeCtrl.text.trim(),
                               status: 'pending',
                               disbursementDate: dateCtrl.text.trim(),

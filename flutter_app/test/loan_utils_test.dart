@@ -77,6 +77,65 @@ void main() {
       expect(schedule[0].interest, 0.0);
       expect(schedule[11].balance, 0.0);
     });
+
+    test('LoanUtils.generateSchedule handles flat "5-6" interest method correctly', () {
+      // 1000 principal, 20% flat rate (add-on), 10 weekly installments
+      final schedule = LoanUtils.generateSchedule(
+        1000.0,
+        20.0,
+        10,
+        '2026-01-01',
+        repaymentFrequency: 'weekly',
+        interestMethod: 'flat',
+      );
+
+      expect(schedule.length, 10);
+      // Total interest = 1000 * 20% = 200. Total repayable = 1200. Per weekly installment = 120.
+      expect(schedule[0].amount, 120.0);
+      expect(schedule[0].principal, 100.0);
+      expect(schedule[0].interest, 20.0);
+      expect(schedule[0].dueDate, '2026-01-08');
+      expect(schedule[9].dueDate, '2026-03-12');
+    });
+
+    test('LoanUtils.generateSchedule handles interest-only balloon interest method', () {
+      final schedule = LoanUtils.generateSchedule(
+        1200.0,
+        12.0,
+        12,
+        '2026-01-01',
+        repaymentFrequency: 'monthly',
+        interestMethod: 'interest_only',
+      );
+
+      expect(schedule.length, 12);
+      // Monthly interest = 1200 * (12%/12) = 12.0
+      expect(schedule[0].amount, 12.0);
+      expect(schedule[0].principal, 0.0);
+      expect(schedule[0].interest, 12.0);
+
+      // Final installment includes full principal balloon (1200 + 12 = 1212)
+      expect(schedule[11].amount, 1212.0);
+      expect(schedule[11].principal, 1200.0);
+      expect(schedule[11].interest, 12.0);
+    });
+
+    test('LoanUtils.generateSchedule handles one-time lump sum payment', () {
+      final schedule = LoanUtils.generateSchedule(
+        500.0,
+        10.0,
+        1,
+        '2026-01-01',
+        repaymentFrequency: 'monthly',
+        interestMethod: 'one_time',
+      );
+
+      expect(schedule.length, 1);
+      expect(schedule[0].amount, 550.0);
+      expect(schedule[0].principal, 500.0);
+      expect(schedule[0].interest, 50.0);
+      expect(schedule[0].dueDate, '2026-02-01');
+    });
   });
 
   group('LoanUtils.getScheduleWithStatus', () {
