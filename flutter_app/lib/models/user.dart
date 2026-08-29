@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:crypto/crypto.dart';
 
 class User {
@@ -7,6 +8,7 @@ class User {
   final String passwordHash;
   final String salt;
   final String role; // 'officer', 'approver', 'viewer'
+  final bool mustChangePassword;
 
   User({
     required this.id,
@@ -14,11 +16,18 @@ class User {
     required this.passwordHash,
     required this.salt,
     required this.role,
+    this.mustChangePassword = false,
   });
 
   static String hashPassword(String password, String salt) {
     final bytes = utf8.encode('$salt:$password');
     return sha256.convert(bytes).toString();
+  }
+
+  static String generateSalt([int length = 16]) {
+    final rand = Random.secure();
+    final values = List<int>.generate(length, (i) => rand.nextInt(256));
+    return base64Url.encode(values);
   }
 
   bool verifyPassword(String password) {
@@ -32,6 +41,7 @@ class User {
       passwordHash: map['password_hash']?.toString() ?? map['passwordHash']?.toString() ?? '',
       salt: map['salt']?.toString() ?? '',
       role: map['role']?.toString() ?? 'viewer',
+      mustChangePassword: map['must_change_password'] == true || map['mustChangePassword'] == true,
     );
   }
 
@@ -42,6 +52,7 @@ class User {
       'password_hash': passwordHash,
       'salt': salt,
       'role': role,
+      'must_change_password': mustChangePassword,
     };
   }
 
@@ -51,6 +62,7 @@ class User {
     String? passwordHash,
     String? salt,
     String? role,
+    bool? mustChangePassword,
   }) {
     return User(
       id: id ?? this.id,
@@ -58,6 +70,7 @@ class User {
       passwordHash: passwordHash ?? this.passwordHash,
       salt: salt ?? this.salt,
       role: role ?? this.role,
+      mustChangePassword: mustChangePassword ?? this.mustChangePassword,
     );
   }
 }

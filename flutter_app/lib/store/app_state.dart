@@ -164,6 +164,100 @@ class AppState extends ChangeNotifier {
     setThemeMode(isDarkMode ? ThemeMode.light : ThemeMode.dark);
   }
 
+  List<User> get users {
+    return store
+        .getCollection('users')
+        .map((e) => User.fromMap(e))
+        .toList();
+  }
+
+  Future<void> changePassword(String userId, String oldPassword, String newPassword) async {
+    final userMaps = store.getCollection('users');
+    final match = userMaps.where((m) => m['id'] == userId).toList();
+    if (match.isEmpty) {
+      throw ArgumentError('User not found.');
+    }
+
+    final targetUser = User.fromMap(match.first);
+    if (!targetUser.verifyPassword(oldPassword.trim())) {
+      throw ArgumentError('Incorrect current password.');
+    }
+
+    final newSalt = User.generateSalt();
+    final newHash = User.hashPassword(newPassword.trim(), newSalt);
+
+    await store.updateItem('users', userId, {
+      'password_hash': newHash,
+      'salt': newSalt,
+      'must_change_password': false,
+    });
+
+    if (_currentUser?.id == userId) {
+      _currentUser = _currentUser!.copyWith(
+        passwordHash: newHash,
+        salt: newSalt,
+        mustChangePassword: false,
+      );
+    }
+    notifyListeners();
+  }
+
+  Future<void> createUser(String username, String password, String role) async {
+    if (_currentUser == null || _currentUser!.role != 'approver') {
+      throw StateError('Unauthorized: Only approvers can create users.');
+    }
+
+    final uName = username.trim();
+    if (uName.isEmpty || password.trim().isEmpty) {
+      throw ArgumentError('Username and password cannot be empty.');
+    }
+
+    if (users.any((u) => u.username.toLowerCase() == uName.toLowerCase())) {
+      throw ArgumentError('Username already exists.');
+    }
+
+    final salt = User.generateSalt();
+    final passwordHash = User.hashPassword(password.trim(), salt);
+
+    final newUser = User(
+      id: 'usr_${DateTime.now().millisecondsSinceEpoch}',
+      username: uName,
+      passwordHash: passwordHash,
+      salt: salt,
+      role: role,
+      mustChangePassword: false,
+    );
+
+    await store.addItem('users', newUser.toMap());
+    notifyListeners();
+  }
+
+  Future<void> updateUserRole(String userId, String newRole) async {
+    if (_currentUser == null || _currentUser!.role != 'approver') {
+      throw StateError('Unauthorized: Only approvers can update user roles.');
+    }
+
+    await store.updateItem('users', userId, {'role': newRole});
+
+    if (_currentUser?.id == userId) {
+      _currentUser = _currentUser!.copyWith(role: newRole);
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteUser(String userId) async {
+    if (_currentUser == null || _currentUser!.role != 'approver') {
+      throw StateError('Unauthorized: Only approvers can delete users.');
+    }
+
+    if (_currentUser!.id == userId) {
+      throw ArgumentError('Cannot delete your own account.');
+    }
+
+    await store.deleteItem('users', userId);
+    notifyListeners();
+  }
+
   List<Borrower> get borrowers {
     return store
         .getCollection('borrowers')
@@ -305,27 +399,26 @@ class AppState extends ChangeNotifier {
       throw StateError('Unauthorized: Role "${_currentUser?.role ?? "unauthenticated"}" cannot record payments.');
     }
 
-    final loan = loans.firstWhere((l) => l.id == loanId);
-    if (loan.payments.any((p) => p.id == payment.id)) {
-      // Idempotent: payment already recorded
-      return;
+    final existingLoan = loans.firstWhere((l) => l.id == loanId);
+    final statsBefore = LoanUtils.getLoanStats(existingLoan);
+    final totalRequired = LoanUtils.round2(statsBefore.totalScheduled + statsBefore.penaltyAmount);
+
+    final updatedLoanMap = await store.appendToItemArray(
+      'loans',
+      loanId,
+      'payments',
+      payment.toMap(),
+    );
+
+    if (updatedLoanMap == null) return;
+
+    final updatedLoan = Loan.fromMap(updatedLoanMap);
+    final statsAfter = LoanUtils.getLoanStats(updatedLoan);
+
+    if (statsAfter.totalPaid >= totalRequired && existingLoan.status == 'active') {
+      await store.updateItem('loans', loanId, {'status': 'completed'});
     }
 
-    final updatedPayments = [...loan.payments, payment];
-
-    final stats = LoanUtils.getLoanStats(loan);
-    final totalPaidNow = updatedPayments.fold(0.0, (s, p) => s + p.amount);
-    final totalRequired = LoanUtils.round2(stats.totalScheduled + stats.penaltyAmount);
-
-    String newStatus = loan.status;
-    if (totalPaidNow >= totalRequired && loan.status == 'active') {
-      newStatus = 'completed';
-    }
-
-    await store.updateItem('loans', loanId, {
-      'payments': updatedPayments.map((p) => p.toMap()).toList(),
-      'status': newStatus,
-    });
     notifyListeners();
   }
 }
