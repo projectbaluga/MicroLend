@@ -7,6 +7,8 @@ import 'screens/loan_detail_screen.dart';
 import 'screens/loans_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/users_screen.dart';
+import 'widgets/responsive_container.dart';
 import 'store/app_state.dart';
 import 'store/offline_store.dart';
 
@@ -54,7 +56,132 @@ class MicroLendApp extends StatelessWidget {
           primary: Colors.white,
         ),
       ),
-      home: state.isLoggedIn ? const MainShell() : const LoginScreen(),
+      home: !state.isLoggedIn
+          ? const LoginScreen()
+          : (state.currentUser?.mustChangePassword == true
+              ? const ForcePasswordChangeScreen()
+              : const MainShell()),
+    );
+  }
+}
+
+class ForcePasswordChangeScreen extends StatefulWidget {
+  const ForcePasswordChangeScreen({super.key});
+
+  @override
+  State<ForcePasswordChangeScreen> createState() => _ForcePasswordChangeScreenState();
+}
+
+class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
+  final _oldPasswordCtrl = TextEditingController();
+  final _newPasswordCtrl = TextEditingController();
+  final _confirmPasswordCtrl = TextEditingController();
+  String? _errorMsg;
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = Provider.of<AppState>(context);
+    final user = state.currentUser;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Password Change Required'),
+        actions: [
+          IconButton(icon: const Icon(Icons.logout), onPressed: state.logout),
+        ],
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: ResponsiveContainer(
+            maxWidth: 420,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.lock_reset, size: 48, color: Colors.orangeAccent),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Welcome, ${user?.username ?? "User"}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'You must change your initial password before proceeding.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_errorMsg != null) ...[
+                      Text(_errorMsg!, style: const TextStyle(color: Colors.redAccent, fontSize: 12), textAlign: TextAlign.center),
+                      const SizedBox(height: 12),
+                    ],
+                    TextField(
+                      controller: _oldPasswordCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(labelText: 'Current Password', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _newPasswordCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(labelText: 'New Password', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _confirmPasswordCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(labelText: 'Confirm New Password', border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () async {
+                              final oldP = _oldPasswordCtrl.text.trim();
+                              final newP = _newPasswordCtrl.text.trim();
+                              final confP = _confirmPasswordCtrl.text.trim();
+
+                              if (oldP.isEmpty || newP.isEmpty) {
+                                setState(() => _errorMsg = 'Please enter all fields.');
+                                return;
+                              }
+
+                              if (newP != confP) {
+                                setState(() => _errorMsg = 'New passwords do not match.');
+                                return;
+                              }
+
+                              setState(() {
+                                _isLoading = true;
+                                _errorMsg = null;
+                              });
+
+                              try {
+                                await state.changePassword(user!.id, oldP, newP);
+                              } catch (e) {
+                                setState(() {
+                                  _isLoading = false;
+                                  _errorMsg = e.toString().replaceAll('ArgumentError: ', '');
+                                });
+                              }
+                            },
+                      child: _isLoading
+                          ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('Update Password & Continue'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -98,6 +225,8 @@ class _MainShellState extends State<MainShell> {
     } else if (_currentIndex == 2) {
       title = 'Loans';
     } else if (_currentIndex == 3) {
+      title = 'Users';
+    } else if (_currentIndex == 4) {
       title = 'Settings';
     }
 
@@ -146,6 +275,9 @@ class _MainShellState extends State<MainShell> {
           );
           break;
         case 3:
+          content = const UsersScreen();
+          break;
+        case 4:
         default:
           content = const SettingsScreen();
           break;
@@ -174,6 +306,11 @@ class _MainShellState extends State<MainShell> {
                     icon: Icon(Icons.credit_card_outlined),
                     selectedIcon: Icon(Icons.credit_card),
                     label: Text('Loans'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.manage_accounts_outlined),
+                    selectedIcon: Icon(Icons.manage_accounts),
+                    label: Text('Users'),
                   ),
                   NavigationRailDestination(
                     icon: Icon(Icons.settings_outlined),
@@ -247,6 +384,11 @@ class _MainShellState extends State<MainShell> {
                   icon: Icon(Icons.credit_card_outlined),
                   activeIcon: Icon(Icons.credit_card),
                   label: 'Loans',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.manage_accounts_outlined),
+                  activeIcon: Icon(Icons.manage_accounts),
+                  label: 'Users',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.settings_outlined),

@@ -135,6 +135,52 @@ class OfflineStore {
     });
   }
 
+  Future<Map<String, dynamic>?> appendToItemArray(
+    String collectionName,
+    String id,
+    String arrayField,
+    Map<String, dynamic> element, {
+    String idField = 'id',
+  }) async {
+    return await _synchronized(() async {
+      final key = '$_storagePrefix$collectionName';
+      final raw = _prefs.getString(key);
+      List<Map<String, dynamic>> collection = [];
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          final List decoded = jsonDecode(raw);
+          collection = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+        } catch (_) {}
+      }
+
+      Map<String, dynamic>? updatedItem;
+      final updated = collection.map((item) {
+        if (item['id'] == id) {
+          final existingArrayRaw = item[arrayField] is List ? List.from(item[arrayField]) : [];
+          final existingArray = existingArrayRaw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+          final elementId = element[idField];
+          final exists = elementId != null && existingArray.any((e) => e[idField] == elementId);
+
+          if (!exists) {
+            existingArray.add(element);
+          }
+
+          updatedItem = {
+            ...item,
+            arrayField: existingArray,
+            'updatedAt': DateTime.now().toIso8601String(),
+          };
+          return updatedItem!;
+        }
+        return item;
+      }).toList();
+
+      await _prefs.setString(key, jsonEncode(updated));
+      return updatedItem;
+    });
+  }
+
   Future<void> clearAllData() async {
     await saveCollection('borrowers', []);
     await saveCollection('loans', []);
@@ -147,30 +193,16 @@ class OfflineStore {
     final existingUsers = getCollection('users');
 
     if (force || existingUsers.isEmpty) {
-      final sampleUsers = [
-        User(
-          id: 'usr_approver',
-          username: 'approver',
-          passwordHash: User.hashPassword('approver123', 'salt_app'),
-          salt: 'salt_app',
-          role: 'approver',
-        ),
-        User(
-          id: 'usr_officer',
-          username: 'officer',
-          passwordHash: User.hashPassword('officer123', 'salt_off'),
-          salt: 'salt_off',
-          role: 'officer',
-        ),
-        User(
-          id: 'usr_viewer',
-          username: 'viewer',
-          passwordHash: User.hashPassword('viewer123', 'salt_viw'),
-          salt: 'salt_viw',
-          role: 'viewer',
-        ),
-      ];
-      await saveCollection('users', sampleUsers.map((u) => u.toMap()).toList());
+      final adminSalt = User.generateSalt();
+      final defaultAdmin = User(
+        id: 'usr_admin',
+        username: 'admin',
+        passwordHash: User.hashPassword('admin123', adminSalt),
+        salt: adminSalt,
+        role: 'approver',
+        mustChangePassword: true,
+      );
+      await saveCollection('users', [defaultAdmin.toMap()]);
     }
 
     if (!force && (existingBorrowers.isNotEmpty || existingLoans.isNotEmpty)) {

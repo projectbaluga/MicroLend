@@ -11,8 +11,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _usernameCtrl = TextEditingController(text: 'approver');
-  final _passwordCtrl = TextEditingController(text: 'approver123');
+  final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -39,12 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _errorMessage = 'Invalid username or password.';
       });
     }
-  }
-
-  void _quickFill(String username, String password) {
-    _usernameCtrl.text = username;
-    _passwordCtrl.text = password;
-    _handleLogin();
   }
 
   @override
@@ -127,34 +121,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Text('Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(height: 24),
-                    const Divider(),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Demo Credentials Quick Login:',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () => _quickFill('approver', 'approver123'),
-                          child: const Text('Approver', style: TextStyle(fontSize: 11)),
-                        ),
-                        OutlinedButton(
-                          onPressed: () => _quickFill('officer', 'officer123'),
-                          child: const Text('Officer', style: TextStyle(fontSize: 11)),
-                        ),
-                        OutlinedButton(
-                          onPressed: () => _quickFill('viewer', 'viewer123'),
-                          child: const Text('Viewer', style: TextStyle(fontSize: 11)),
-                        ),
-                      ],
                     ),
                   ],
                 ),

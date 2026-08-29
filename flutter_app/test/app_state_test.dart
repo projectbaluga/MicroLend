@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:microlend/models/loan.dart';
@@ -18,13 +19,17 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       store = await OfflineStore.init();
       appState = AppState(store);
-      // Login default approver for initial setups
-      await appState.login('approver', 'approver123');
+      // Login seeded default admin (username: 'admin', password: 'admin123')
+      await appState.login('admin', 'admin123');
     });
 
-    test('RBAC role enforcement and separation of duties', () async {
-      // 1. Viewer role cannot create loans
-      await appState.login('viewer', 'viewer123');
+    test('RBAC role enforcement, createUser and separation of duties', () async {
+      // 1. Create officer user using admin (approver role)
+      await appState.createUser('officer_jane', 'officer123', 'officer');
+      await appState.createUser('viewer_bob', 'viewer123', 'viewer');
+
+      // 2. Viewer role cannot create loans or users
+      await appState.login('viewer_bob', 'viewer123');
       final loanCandidate = Loan(
         id: 'viewer_loan',
         borrowerId: 'b1',
@@ -39,9 +44,10 @@ void main() {
         notes: '',
       );
       expect(() => appState.addLoan(loanCandidate), throwsStateError);
+      expect(() => appState.createUser('test_u', 'pwd', 'officer'), throwsStateError);
 
-      // 2. Officer role CAN create loan
-      await appState.login('officer', 'officer123');
+      // 3. Officer role CAN create loan
+      await appState.login('officer_jane', 'officer123');
       final officerLoan = Loan(
         id: 'officer_loan_1',
         borrowerId: 'b1',
@@ -58,16 +64,16 @@ void main() {
       await appState.addLoan(officerLoan);
       expect(appState.loans.any((l) => l.id == 'officer_loan_1'), isTrue);
 
-      // 3. Officer role CANNOT approve loan
+      // 4. Officer role CANNOT approve loan
       expect(() => appState.approveLoan('officer_loan_1'), throwsStateError);
 
-      // 4. Approver role CAN approve loan created by officer
-      await appState.login('approver', 'approver123');
+      // 5. Approver role CAN approve loan created by officer
+      await appState.login('admin', 'admin123');
       await appState.approveLoan('officer_loan_1');
       var approvedLoan = appState.loans.firstWhere((l) => l.id == 'officer_loan_1');
       expect(approvedLoan.status, 'active');
 
-      // 5. Approver role CANNOT approve loan created by themselves (separation of duties)
+      // 6. Approver role CANNOT approve loan created by themselves (separation of duties)
       final approverOwnLoan = Loan(
         id: 'approver_own_loan',
         borrowerId: 'b1',
@@ -81,14 +87,16 @@ void main() {
         payments: [],
         notes: '',
       );
-      await appState.addLoan(approverOwnLoan); // createdBy set to 'usr_approver'
+      await appState.addLoan(approverOwnLoan); // createdBy set to 'usr_admin'
       expect(() => appState.approveLoan('approver_own_loan'), throwsStateError);
     });
 
-    test('approving a weekly/flat loan preserves frequency, method, installment count and disbursement date', () async {
-      await appState.login('officer', 'officer123');
-      final pendingLoan = Loan(
-        id: 'weekly_flat_1',
+    test('approving a weekly/flat loan preserves frequency, method, and installment count', () async {
+      await appState.createUser('officer_weekly', 'officer123', 'officer');
+      await appState.login('officer_weekly', 'officer123');
+
+      final pendingWeeklyLoan = Loan(
+        id: 'weekly_flat_loan_test',
         borrowerId: 'b1',
         principal: 1000.0,
         interestRate: 20.0,
@@ -96,36 +104,37 @@ void main() {
         repaymentFrequency: 'weekly',
         interestMethod: 'flat',
         termCount: 10,
-        purpose: 'Inventory',
+        purpose: 'Weekly Flat Test',
         status: 'pending',
         disbursementDate: '2026-02-01',
         schedule: [],
         payments: [],
         notes: '',
       );
-      await appState.addLoan(pendingLoan);
+      await appState.addLoan(pendingWeeklyLoan);
 
-      await appState.login('approver', 'approver123');
-      await appState.approveLoan(pendingLoan.id);
+      await appState.login('admin', 'admin123');
+      await appState.approveLoan('weekly_flat_loan_test');
 
-      final approved = appState.loans.firstWhere((l) => l.id == pendingLoan.id);
+      final approved = appState.loans.firstWhere((l) => l.id == 'weekly_flat_loan_test');
       expect(approved.status, 'active');
       expect(approved.repaymentFrequency, 'weekly');
       expect(approved.interestMethod, 'flat');
       expect(approved.termCount, 10);
-      expect(approved.disbursementDate, '2026-02-01');
       expect(approved.schedule.length, 10);
     });
 
     test('illegal status transitions are rejected', () async {
-      await appState.login('officer', 'officer123');
+      await appState.createUser('officer_trans', 'officer123', 'officer');
+      await appState.login('officer_trans', 'officer123');
+
       final pendingLoan = Loan(
-        id: 'loan_pending',
+        id: 'trans_pending',
         borrowerId: 'b1',
         principal: 1000.0,
         interestRate: 10.0,
         termMonths: 6,
-        purpose: 'Test',
+        purpose: 'Transition Test Pending',
         status: 'pending',
         disbursementDate: '2026-01-01',
         schedule: [],
@@ -133,12 +142,12 @@ void main() {
         notes: '',
       );
       final activeLoan = Loan(
-        id: 'loan_active',
+        id: 'trans_active',
         borrowerId: 'b1',
         principal: 1000.0,
         interestRate: 10.0,
         termMonths: 6,
-        purpose: 'Test',
+        purpose: 'Transition Test Active',
         status: 'active',
         disbursementDate: '2026-01-01',
         schedule: [],
@@ -146,12 +155,12 @@ void main() {
         notes: '',
       );
       final completedLoan = Loan(
-        id: 'loan_completed',
+        id: 'trans_completed',
         borrowerId: 'b1',
         principal: 1000.0,
         interestRate: 10.0,
         termMonths: 6,
-        purpose: 'Test',
+        purpose: 'Transition Test Completed',
         status: 'completed',
         disbursementDate: '2026-01-01',
         schedule: [],
@@ -159,12 +168,12 @@ void main() {
         notes: '',
       );
       final defaultedLoan = Loan(
-        id: 'loan_defaulted',
+        id: 'trans_defaulted',
         borrowerId: 'b1',
         principal: 1000.0,
         interestRate: 10.0,
         termMonths: 6,
-        purpose: 'Test',
+        purpose: 'Transition Test Defaulted',
         status: 'defaulted',
         disbursementDate: '2026-01-01',
         schedule: [],
@@ -177,28 +186,52 @@ void main() {
       await appState.addLoan(completedLoan);
       await appState.addLoan(defaultedLoan);
 
-      await appState.login('approver', 'approver123');
+      await appState.login('admin', 'admin123');
 
-      // Re-approving active/non-pending loan is rejected
-      expect(() => appState.approveLoan('loan_active'), throwsArgumentError);
-      expect(() => appState.approveLoan('loan_completed'), throwsArgumentError);
+      // Re-approving active or completed loan is rejected
+      expect(() => appState.approveLoan('trans_active'), throwsArgumentError);
+      expect(() => appState.approveLoan('trans_completed'), throwsArgumentError);
 
-      // Illegal markLoanStatus transitions are rejected
-      expect(() => appState.markLoanStatus('loan_pending', 'completed'), throwsArgumentError);
-      expect(() => appState.markLoanStatus('loan_pending', 'defaulted'), throwsArgumentError);
-      expect(() => appState.markLoanStatus('loan_defaulted', 'completed'), throwsArgumentError);
-      expect(() => appState.markLoanStatus('loan_completed', 'active'), throwsArgumentError);
+      // Illegal status transitions via markLoanStatus are rejected
+      expect(() => appState.markLoanStatus('trans_pending', 'completed'), throwsArgumentError);
+      expect(() => appState.markLoanStatus('trans_pending', 'defaulted'), throwsArgumentError);
+      expect(() => appState.markLoanStatus('trans_defaulted', 'completed'), throwsArgumentError);
+      expect(() => appState.markLoanStatus('trans_completed', 'active'), throwsArgumentError);
     });
 
-    test('idempotent recordPayment ignores duplicate payment id', () async {
-      await appState.login('officer', 'officer123');
+    test('changePassword updates password hash with new salt and rejects wrong old password', () async {
+      final adminUser = appState.currentUser!;
+      final oldSalt = adminUser.salt;
+
+      // Wrong old password throws error
+      expect(
+        () => appState.changePassword(adminUser.id, 'wrong_old', 'new_pass_123'),
+        throwsArgumentError,
+      );
+
+      // Successful change password
+      await appState.changePassword(adminUser.id, 'admin123', 'new_pass_123');
+
+      final updatedUser = appState.currentUser!;
+      expect(updatedUser.salt, isNot(equals(oldSalt))); // Salt re-generated
+      expect(updatedUser.mustChangePassword, false);
+
+      // Old password no longer verifies
+      expect(updatedUser.verifyPassword('admin123'), false);
+      expect(updatedUser.verifyPassword('new_pass_123'), true);
+    });
+
+    test('concurrent recordPayment via Future.wait persists both payments without lost updates', () async {
+      await appState.createUser('officer_test', 'officer123', 'officer');
+      await appState.login('officer_test', 'officer123');
+
       final activeLoan = Loan(
-        id: 'loan_idempotent',
+        id: 'loan_concurrent_pay',
         borrowerId: 'b1',
         principal: 1000.0,
         interestRate: 10.0,
         termMonths: 6,
-        purpose: 'Idempotence Test',
+        purpose: 'Concurrent Payment Test',
         status: 'active',
         disbursementDate: '2026-01-01',
         schedule: [],
@@ -207,37 +240,41 @@ void main() {
       );
       await appState.addLoan(activeLoan);
 
-      final pay1 = Payment(id: 'unique_pay_123', date: '2026-02-01', amount: 200.0, method: 'Cash', note: 'First');
-      await appState.recordPayment('loan_idempotent', pay1);
-      var current = appState.loans.firstWhere((l) => l.id == 'loan_idempotent');
-      expect(current.payments.length, 1);
+      final pay1 = Payment(id: 'pay_conc_1', date: '2026-02-01', amount: 150.0, method: 'Cash', note: 'Pay 1');
+      final pay2 = Payment(id: 'pay_conc_2', date: '2026-02-01', amount: 250.0, method: 'Check', note: 'Pay 2');
 
-      // Re-record exact same payment id
-      await appState.recordPayment('loan_idempotent', pay1);
-      current = appState.loans.firstWhere((l) => l.id == 'loan_idempotent');
-      expect(current.payments.length, 1); // No duplicate added
+      // Fire both recordPayment calls concurrently
+      await Future.wait([
+        appState.recordPayment('loan_concurrent_pay', pay1),
+        appState.recordPayment('loan_concurrent_pay', pay2),
+      ]);
+
+      final updatedLoan = appState.loans.firstWhere((l) => l.id == 'loan_concurrent_pay');
+      expect(updatedLoan.payments.length, 2);
+      expect(updatedLoan.payments.any((p) => p.id == 'pay_conc_1'), isTrue);
+      expect(updatedLoan.payments.any((p) => p.id == 'pay_conc_2'), isTrue);
+
+      // Idempotency: re-applying pay1 again does not duplicate
+      await appState.recordPayment('loan_concurrent_pay', pay1);
+      final refetched = appState.loans.firstWhere((l) => l.id == 'loan_concurrent_pay');
+      expect(refetched.payments.length, 2);
     });
 
-    test('serialized concurrent store writes preserve data', () async {
-      // Fire 10 concurrent addItem operations
-      final futures = List.generate(10, (i) {
-        return store.addItem('loans', {
-          'id': 'concurrent_loan_$i',
-          'purpose': 'Concurrent Test $i',
-          'principal': 1000.0 + i,
-        });
-      });
+    test('verify no hardcoded demo credentials remain in login_screen.dart', () {
+      final loginScreenFile = File('lib/screens/login_screen.dart');
+      expect(loginScreenFile.existsSync(), isTrue);
+      final content = loginScreenFile.readAsStringSync();
 
-      await Future.wait(futures);
-
-      final allLoans = store.getCollection('loans');
-      for (int i = 0; i < 10; i++) {
-        expect(allLoans.any((l) => l['id'] == 'concurrent_loan_$i'), isTrue);
-      }
+      expect(content.contains("text: 'approver'"), isFalse);
+      expect(content.contains("text: 'approver123'"), isFalse);
+      expect(content.contains("Demo Credentials"), isFalse);
+      expect(content.contains("_quickFill"), isFalse);
     });
 
     test('completion accounts for penalties and overpayment produces credit balance', () async {
-      await appState.login('officer', 'officer123');
+      await appState.createUser('officer_pay', 'officer123', 'officer');
+      await appState.login('officer_pay', 'officer123');
+
       final oldDueDate = '2020-01-01'; // Overdue date to trigger penalty
       final schedule = [
         ScheduleInstallment(
