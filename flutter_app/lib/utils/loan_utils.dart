@@ -14,6 +14,7 @@ class LoanStats {
   final double overdueAmount;
   final double penaltyAmount;
   final double totalDueWithPenalty;
+  final double creditBalance;
   final int progressPct;
   final ScheduleInstallment? nextDue;
   final List<ScheduleInstallment> scheduleWithStatus;
@@ -26,6 +27,7 @@ class LoanStats {
     required this.overdueAmount,
     required this.penaltyAmount,
     required this.totalDueWithPenalty,
+    this.creditBalance = 0.0,
     required this.progressPct,
     this.nextDue,
     required this.scheduleWithStatus,
@@ -399,6 +401,9 @@ class LoanUtils {
     final penaltyAmount = calculatePenalty(loan, scheduleWithStatus, refDate);
     final totalDueWithPenalty = round2(outstandingBalance + penaltyAmount);
 
+    final totalRequired = round2(totalScheduled + penaltyAmount);
+    final creditBalance = totalPaid > totalRequired ? round2(totalPaid - totalRequired) : 0.0;
+
     return LoanStats(
       totalDisbursed: netDisbursed,
       totalScheduled: round2(totalScheduled),
@@ -407,6 +412,7 @@ class LoanUtils {
       overdueAmount: round2(overdueAmount),
       penaltyAmount: penaltyAmount,
       totalDueWithPenalty: totalDueWithPenalty,
+      creditBalance: creditBalance,
       progressPct: progressPct,
       nextDue: nextDue,
       scheduleWithStatus: scheduleWithStatus,

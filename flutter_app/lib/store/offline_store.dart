@@ -1,12 +1,27 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/borrower.dart';
 import '../models/loan.dart';
 import '../models/payment.dart';
+import '../models/user.dart';
 import '../utils/loan_utils.dart';
 
 class OfflineStore {
+  Future<void> _lock = Future.value();
+
+  Future<T> _synchronized<T>(Future<T> Function() operation) async {
+    final previous = _lock;
+    final completer = Completer<void>();
+    _lock = completer.future;
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      completer.complete();
+    }
+  }
   static const String _storagePrefix = 'microlend_';
   static const String _settingPrefix = '${_storagePrefix}setting_';
 
@@ -26,7 +41,9 @@ class OfflineStore {
   }
 
   Future<void> setSetting(String key, String value) async {
-    await _prefs.setString('$_settingPrefix$key', value);
+    await _synchronized(() async {
+      await _prefs.setString('$_settingPrefix$key', value);
+    });
   }
 
   List<Map<String, dynamic>> getCollection(String collectionName) {
@@ -42,59 +59,119 @@ class OfflineStore {
   }
 
   Future<void> saveCollection(String collectionName, List<Map<String, dynamic>> items) async {
-    final key = '$_storagePrefix$collectionName';
-    await _prefs.setString(key, jsonEncode(items));
+    await _synchronized(() async {
+      final key = '$_storagePrefix$collectionName';
+      await _prefs.setString(key, jsonEncode(items));
+    });
   }
 
   Future<Map<String, dynamic>> addItem(String collectionName, Map<String, dynamic> item) async {
-    final collection = getCollection(collectionName);
-    final newItem = {
-      'id': item['id'] ?? '${collectionName.substring(0, 3)}_${DateTime.now().millisecondsSinceEpoch}',
-      'createdAt': DateTime.now().toIso8601String(),
-      ...item,
-    };
+    return await _synchronized(() async {
+      final key = '$_storagePrefix$collectionName';
+      final raw = _prefs.getString(key);
+      List<Map<String, dynamic>> collection = [];
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          final List decoded = jsonDecode(raw);
+          collection = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+        } catch (_) {}
+      }
 
-    final updated = [newItem, ...collection];
-    await saveCollection(collectionName, updated);
+      final newItem = {
+        'id': item['id'] ?? '${collectionName.substring(0, 3)}_${DateTime.now().millisecondsSinceEpoch}',
+        'createdAt': DateTime.now().toIso8601String(),
+        ...item,
+      };
 
-    return newItem;
+      final updated = [newItem, ...collection];
+      await _prefs.setString(key, jsonEncode(updated));
+      return newItem;
+    });
   }
 
   Future<Map<String, dynamic>?> updateItem(String collectionName, String id, Map<String, dynamic> updates) async {
-    final collection = getCollection(collectionName);
-    Map<String, dynamic>? updatedItem;
-
-    final updated = collection.map((item) {
-      if (item['id'] == id) {
-        updatedItem = {
-          ...item,
-          ...updates,
-          'updatedAt': DateTime.now().toIso8601String(),
-        };
-        return updatedItem!;
+    return await _synchronized(() async {
+      final key = '$_storagePrefix$collectionName';
+      final raw = _prefs.getString(key);
+      List<Map<String, dynamic>> collection = [];
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          final List decoded = jsonDecode(raw);
+          collection = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+        } catch (_) {}
       }
-      return item;
-    }).toList();
 
-    await saveCollection(collectionName, updated);
+      Map<String, dynamic>? updatedItem;
+      final updated = collection.map((item) {
+        if (item['id'] == id) {
+          updatedItem = {
+            ...item,
+            ...updates,
+            'updatedAt': DateTime.now().toIso8601String(),
+          };
+          return updatedItem!;
+        }
+        return item;
+      }).toList();
 
-    return updatedItem;
+      await _prefs.setString(key, jsonEncode(updated));
+      return updatedItem;
+    });
   }
 
   Future<void> deleteItem(String collectionName, String id) async {
-    final collection = getCollection(collectionName);
-    final updated = collection.where((item) => item['id'] != id).toList();
-    await saveCollection(collectionName, updated);
+    await _synchronized(() async {
+      final key = '$_storagePrefix$collectionName';
+      final raw = _prefs.getString(key);
+      List<Map<String, dynamic>> collection = [];
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          final List decoded = jsonDecode(raw);
+          collection = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+        } catch (_) {}
+      }
+      final updated = collection.where((item) => item['id'] != id).toList();
+      await _prefs.setString(key, jsonEncode(updated));
+    });
   }
 
   Future<void> clearAllData() async {
     await saveCollection('borrowers', []);
     await saveCollection('loans', []);
+    await saveCollection('users', []);
   }
 
   Future<void> seedInitialData({bool force = false}) async {
     final existingBorrowers = getCollection('borrowers');
     final existingLoans = getCollection('loans');
+    final existingUsers = getCollection('users');
+
+    if (force || existingUsers.isEmpty) {
+      final sampleUsers = [
+        User(
+          id: 'usr_approver',
+          username: 'approver',
+          passwordHash: User.hashPassword('approver123', 'salt_app'),
+          salt: 'salt_app',
+          role: 'approver',
+        ),
+        User(
+          id: 'usr_officer',
+          username: 'officer',
+          passwordHash: User.hashPassword('officer123', 'salt_off'),
+          salt: 'salt_off',
+          role: 'officer',
+        ),
+        User(
+          id: 'usr_viewer',
+          username: 'viewer',
+          passwordHash: User.hashPassword('viewer123', 'salt_viw'),
+          salt: 'salt_viw',
+          role: 'viewer',
+        ),
+      ];
+      await saveCollection('users', sampleUsers.map((u) => u.toMap()).toList());
+    }
 
     if (!force && (existingBorrowers.isNotEmpty || existingLoans.isNotEmpty)) {
       return;

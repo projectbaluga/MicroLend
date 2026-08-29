@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -184,8 +185,9 @@ class LoanDetailScreen extends StatelessWidget {
                                   errorMessage = null;
                                 });
 
+                                final randSuffix = Random().nextInt(900000) + 100000;
                                 final payment = Payment(
-                                  id: 'pay_${DateTime.now().millisecondsSinceEpoch}',
+                                  id: 'pay_${DateTime.now().microsecondsSinceEpoch}_$randSuffix',
                                   date: dateCtrl.text.trim(),
                                   amount: amt,
                                   method: selectedMethod,
@@ -243,6 +245,11 @@ class LoanDetailScreen extends StatelessWidget {
     final borrower = borrowers.firstWhere((b) => b.id == loan.borrowerId, orElse: () => borrowers.first);
     final stats = LoanUtils.getLoanStats(loan);
 
+    final isApprover = state.currentUser != null && state.currentUser!.role == 'approver';
+    final isOfficerOrApprover = state.currentUser != null &&
+        (state.currentUser!.role == 'officer' || state.currentUser!.role == 'approver');
+    final canApproveThisLoan = isApprover && loan.createdBy != state.currentUser?.id;
+
     final deductionAmount = LoanUtils.calculateUpfrontDeduction(
       loan.principal,
       loan.upfrontDeductionType,
@@ -290,36 +297,49 @@ class LoanDetailScreen extends StatelessWidget {
                 Row(
                   children: [
                     if (loan.status == 'pending') ...[
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
-                        onPressed: () => state.approveLoan(loan.id),
-                        icon: const Icon(Icons.check, size: 16, color: Colors.white),
-                        label: const Text('Approve', style: TextStyle(color: Colors.white)),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: () => state.markLoanStatus(loan.id, 'rejected'),
-                        icon: const Icon(Icons.close, size: 16),
-                        label: const Text('Reject'),
-                      ),
+                      if (canApproveThisLoan)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+                          onPressed: () => state.approveLoan(loan.id),
+                          icon: const Icon(Icons.check, size: 16, color: Colors.white),
+                          label: const Text('Approve', style: TextStyle(color: Colors.white)),
+                        ),
+                      if (isApprover) ...[
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => state.markLoanStatus(loan.id, 'rejected'),
+                          icon: const Icon(Icons.close, size: 16),
+                          label: const Text('Reject'),
+                        ),
+                      ],
+                      if (!canApproveThisLoan)
+                        Text(
+                          loan.createdBy == state.currentUser?.id
+                              ? ' (Creator cannot approve own loan)'
+                              : ' (Requires Approver Role)',
+                          style: const TextStyle(fontSize: 11, color: Colors.orangeAccent),
+                        ),
                     ],
                     if (loan.status == 'active') ...[
-                      ElevatedButton.icon(
-                        onPressed: () => _showRecordPaymentDialog(context, loan, borrower, state),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Record Payment'),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: () => state.markLoanStatus(loan.id, 'completed'),
-                        child: const Text('Complete'),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
-                        onPressed: () => state.markLoanStatus(loan.id, 'defaulted'),
-                        child: const Text('Default'),
-                      ),
+                      if (isOfficerOrApprover)
+                        ElevatedButton.icon(
+                          onPressed: () => _showRecordPaymentDialog(context, loan, borrower, state),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Record Payment'),
+                        ),
+                      if (isApprover) ...[
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: () => state.markLoanStatus(loan.id, 'completed'),
+                          child: const Text('Complete'),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
+                          onPressed: () => state.markLoanStatus(loan.id, 'defaulted'),
+                          child: const Text('Default'),
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -414,6 +434,38 @@ class LoanDetailScreen extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text('Total Due with Penalty: ${LoanUtils.formatCurrency(stats.totalDueWithPenalty, state.currencyCode)}',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                  ],
+                  if (stats.creditBalance > 0) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF059669).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.account_balance_wallet, color: Color(0xFF059669), size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Credit Balance / Overpayment: ${LoanUtils.formatCurrency(stats.creditBalance, state.currencyCode)}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF059669)),
+                                ),
+                                const Text(
+                                  'Borrower has overpaid past the total loan obligation. Refund or credit available.',
+                                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ],
               ),

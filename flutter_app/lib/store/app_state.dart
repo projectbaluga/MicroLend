@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/borrower.dart';
 import '../models/loan.dart';
 import '../models/payment.dart';
+import '../models/user.dart';
 import '../utils/loan_utils.dart';
 import 'offline_store.dart';
 
@@ -17,6 +18,7 @@ class AppState extends ChangeNotifier {
 
   final OfflineStore store;
 
+  User? _currentUser;
   late String _currencyCode;
   late String _dateFormat;
   late String _businessName;
@@ -48,6 +50,40 @@ class AppState extends ChangeNotifier {
 
     final savedTheme = store.getSetting('themeMode', 'dark');
     _themeMode = savedTheme == 'light' ? ThemeMode.light : ThemeMode.dark;
+
+    final sessionUserId = store.getSetting('session_user_id', '');
+    if (sessionUserId.isNotEmpty) {
+      final userMaps = store.getCollection('users');
+      final match = userMaps.where((m) => m['id'] == sessionUserId).toList();
+      if (match.isNotEmpty) {
+        _currentUser = User.fromMap(match.first);
+      }
+    }
+  }
+
+  User? get currentUser => _currentUser;
+  bool get isLoggedIn => _currentUser != null;
+
+  Future<bool> login(String username, String password) async {
+    final userMaps = store.getCollection('users');
+    final users = userMaps.map((e) => User.fromMap(e)).toList();
+    final match = users.where((u) => u.username.toLowerCase() == username.trim().toLowerCase()).toList();
+    if (match.isEmpty) return false;
+
+    final user = match.first;
+    if (user.verifyPassword(password.trim())) {
+      _currentUser = user;
+      await store.setSetting('session_user_id', user.id);
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> logout() async {
+    _currentUser = null;
+    await store.setSetting('session_user_id', '');
+    notifyListeners();
   }
 
   String get currencyCode => _currencyCode;
@@ -198,7 +234,13 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addLoan(Loan loan) async {
-    await store.addItem('loans', loan.toMap());
+    if (_currentUser == null || _currentUser!.role == 'viewer') {
+      throw StateError('Unauthorized: Role "${_currentUser?.role ?? "unauthenticated"}" cannot create loans.');
+    }
+    final loanToSave = loan.createdBy == null
+        ? loan.copyWith(createdBy: _currentUser!.id)
+        : loan;
+    await store.addItem('loans', loanToSave.toMap());
     notifyListeners();
   }
 
@@ -208,9 +250,17 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> approveLoan(String loanId) async {
+    if (_currentUser == null || _currentUser!.role != 'approver') {
+      throw StateError('Unauthorized: Only approvers can approve loans.');
+    }
+
     final loan = loans.firstWhere((l) => l.id == loanId);
     if (loan.status != 'pending') {
       throw ArgumentError('Cannot approve loan with status "${loan.status}". Only pending loans can be approved.');
+    }
+
+    if (loan.createdBy != null && loan.createdBy == _currentUser!.id) {
+      throw StateError('Unauthorized: Separation of duties violation. Loan creator cannot approve their own loan.');
     }
 
     final disbursementDate = loan.disbursementDate.isNotEmpty
@@ -237,6 +287,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> markLoanStatus(String loanId, String status) async {
+    if (_currentUser == null || _currentUser!.role != 'approver') {
+      throw StateError('Unauthorized: Only approvers can change loan status.');
+    }
+
     final loan = loans.firstWhere((l) => l.id == loanId);
     final allowed = _allowedTransitions[loan.status] ?? [];
     if (!allowed.contains(status)) {
@@ -247,7 +301,16 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> recordPayment(String loanId, Payment payment) async {
+    if (_currentUser == null || (_currentUser!.role != 'officer' && _currentUser!.role != 'approver')) {
+      throw StateError('Unauthorized: Role "${_currentUser?.role ?? "unauthenticated"}" cannot record payments.');
+    }
+
     final loan = loans.firstWhere((l) => l.id == loanId);
+    if (loan.payments.any((p) => p.id == payment.id)) {
+      // Idempotent: payment already recorded
+      return;
+    }
+
     final updatedPayments = [...loan.payments, payment];
 
     final stats = LoanUtils.getLoanStats(loan);
