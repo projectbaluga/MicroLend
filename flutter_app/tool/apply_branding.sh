@@ -14,12 +14,15 @@ echo "=== Applying Branding Overrides ==="
 if [ -n "${ICON_URL:-}" ]; then
   echo "Downloading custom app icon from: ${ICON_URL}"
   mkdir -p assets/branding
-  curl -sSL "${ICON_URL}" -o assets/branding/app_icon.png
-  cp assets/branding/app_icon.png assets/branding/splash_logo.png
-  echo "Generating app icons..."
-  dart run flutter_launcher_icons
-  echo "Generating splash screens..."
-  dart run flutter_native_splash:create
+  if curl -fsSL "${ICON_URL}" -o assets/branding/app_icon.png; then
+    cp assets/branding/app_icon.png assets/branding/splash_logo.png
+    echo "Generating app icons..."
+    dart run flutter_launcher_icons || echo "Warning: flutter_launcher_icons failed"
+    echo "Generating splash screens..."
+    dart run flutter_native_splash:create || echo "Warning: flutter_native_splash failed"
+  else
+    echo "Warning: Failed to download icon from ${ICON_URL}. Skipping launcher icon regeneration."
+  fi
 fi
 
 # 2. APP NAME OVERRIDES
