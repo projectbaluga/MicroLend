@@ -13,6 +13,20 @@ A local-first, offline-capable micro-lending management suite built with Flutter
 
 ---
 
+## Branding & Assets
+
+MicroLend uses a centralized master asset strategy to generate app icons, splash screens, and web metadata for all target platforms:
+- Master Icon & Splash: `flutter_app/assets/branding/app_icon.png` and `flutter_app/assets/branding/splash_logo.png`.
+- Re-generating Platform Icons & Splash:
+  ```bash
+  cd flutter_app
+  dart run flutter_launcher_icons
+  dart run flutter_native_splash:create
+  ```
+- Dynamic CI/CD Branding: In GitHub Actions (`workflow_dispatch`), you can optionally pass `app_name`, `app_description`, `brand_color`, or a custom `icon_url` to generate white-label builds automatically.
+
+---
+
 ## Windows Desktop Support
 
 MicroLend natively runs on Windows Desktop with a responsive desktop layout featuring a side `NavigationRail` on wide screens.
