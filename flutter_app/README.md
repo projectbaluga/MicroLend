@@ -7,8 +7,9 @@ A local-first, offline-capable micro-lending management suite built with Flutter
 - **Dashboard**: Portfolio overview metrics, 6-month expected cash flow chart, overdue repayments tracker, and recent loans progress bars.
 - **Borrowers Management**: Full borrower CRUD, searchable/filterable table, risk badges, and automated credit scoring derived from loan repayment history and Debt-to-Income (DTI) ratio.
 - **Loans Portfolio**: Issue loans, view schedule previews, support for upfront deduction fees (fixed amount or percentage), approval workflows, and installment payment tracking.
-- **Settings & Preferences**: Currency formatting (USD, EUR, PHP, GBP), theme mode toggle (light/dark), customizable default interest rates/terms, JSON data export, and sample data restoration.
-- **Local-First & Offline Capable**: Built with `shared_preferences` local persistence and an offline queue mechanism (`microlend_write_queue`) with sync indicator.
+- **Settings & Preferences**: Currency formatting (USD, EUR, PHP, GBP), theme mode toggle (light/dark), customizable default interest rates/terms, JSON data export, file-based backup/restore, and sample data restoration.
+- **Local-First & Offline Capable**: Built with `shared_preferences` local persistence requiring no external account or cloud dependency.
+- **Backup & Restore**: Easily back up borrower and loan records to a local JSON file, share backup files via the native system share sheet (e.g., to Google Drive or Email), and restore data from picked backup files.
 
 ---
 

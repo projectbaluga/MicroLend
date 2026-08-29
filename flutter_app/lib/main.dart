@@ -188,27 +188,6 @@ class _MainShellState extends State<MainShell> {
       appBar: AppBar(
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
-          // Offline queue sync indicator button
-          if (state.pendingQueueCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: ActionChip(
-                avatar: state.isSyncing
-                    ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.sync, size: 14, color: Colors.amber),
-                label: Text('${state.pendingQueueCount} offline', style: const TextStyle(fontSize: 10, color: Colors.amber)),
-                onPressed: state.syncOfflineQueue,
-              ),
-            )
-          else
-            const Padding(
-              padding: EdgeInsets.only(right: 8.0),
-              child: Chip(
-                avatar: Icon(Icons.check_circle, size: 14, color: Colors.green),
-                label: Text('Synced', style: TextStyle(fontSize: 10)),
-              ),
-            ),
-
           // Theme toggle
           IconButton(
             icon: Icon(state.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),

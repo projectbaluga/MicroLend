@@ -9,7 +9,6 @@ import '../utils/loan_utils.dart';
 class OfflineStore {
   static const String _storagePrefix = 'microlend_';
   static const String _settingPrefix = '${_storagePrefix}setting_';
-  static const String _queueKey = '${_storagePrefix}write_queue';
 
   final SharedPreferences _prefs;
 
@@ -47,34 +46,6 @@ class OfflineStore {
     await _prefs.setString(key, jsonEncode(items));
   }
 
-  List<Map<String, dynamic>> getQueue() {
-    final raw = _prefs.getString(_queueKey);
-    if (raw == null || raw.isEmpty) return [];
-    try {
-      final List decoded = jsonDecode(raw);
-      return decoded.map((e) => Map<String, dynamic>.from(e)).toList();
-    } catch (e) {
-      return [];
-    }
-  }
-
-  Future<void> _pushToQueue(Map<String, dynamic> operation) async {
-    final queue = getQueue();
-    queue.add({
-      'id': 'queue_${DateTime.now().millisecondsSinceEpoch}',
-      'timestamp': DateTime.now().toIso8601String(),
-      ...operation,
-    });
-    await _prefs.setString(_queueKey, jsonEncode(queue));
-  }
-
-  Future<Map<String, dynamic>> syncAll() async {
-    final count = getQueue().length;
-    await Future.delayed(const Duration(milliseconds: 300));
-    await _prefs.setString(_queueKey, jsonEncode([]));
-    return {'success': true, 'syncedCount': count};
-  }
-
   Future<Map<String, dynamic>> addItem(String collectionName, Map<String, dynamic> item) async {
     final collection = getCollection(collectionName);
     final newItem = {
@@ -85,12 +56,6 @@ class OfflineStore {
 
     final updated = [newItem, ...collection];
     await saveCollection(collectionName, updated);
-
-    await _pushToQueue({
-      'action': 'CREATE',
-      'collection': collectionName,
-      'payload': newItem,
-    });
 
     return newItem;
   }
@@ -113,15 +78,6 @@ class OfflineStore {
 
     await saveCollection(collectionName, updated);
 
-    if (updatedItem != null) {
-      await _pushToQueue({
-        'action': 'UPDATE',
-        'collection': collectionName,
-        'id': id,
-        'payload': updates,
-      });
-    }
-
     return updatedItem;
   }
 
@@ -129,18 +85,11 @@ class OfflineStore {
     final collection = getCollection(collectionName);
     final updated = collection.where((item) => item['id'] != id).toList();
     await saveCollection(collectionName, updated);
-
-    await _pushToQueue({
-      'action': 'DELETE',
-      'collection': collectionName,
-      'id': id,
-    });
   }
 
   Future<void> clearAllData() async {
     await saveCollection('borrowers', []);
     await saveCollection('loans', []);
-    await _prefs.setString(_queueKey, jsonEncode([]));
   }
 
   Future<void> seedInitialData({bool force = false}) async {
