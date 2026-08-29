@@ -126,13 +126,34 @@ class SettingsScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      const Text('Business / Operator Name', style: TextStyle(fontSize: 13)),
+                      SizedBox(
+                        width: 180,
+                        child: TextField(
+                          controller: TextEditingController(text: state.businessName),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            border: OutlineInputBorder(),
+                          ),
+                          onSubmitted: (val) {
+                            if (val.trim().isNotEmpty) state.setBusinessName(val.trim());
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                       const Text('Currency Symbol', style: TextStyle(fontSize: 13)),
                       DropdownButton<String>(
                         value: state.currencyCode,
                         items: const [
+                          DropdownMenuItem(value: 'PHP', child: Text('PHP (₱)')),
                           DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
                           DropdownMenuItem(value: 'EUR', child: Text('EUR (€)')),
-                          DropdownMenuItem(value: 'PHP', child: Text('PHP (₱)')),
                           DropdownMenuItem(value: 'GBP', child: Text('GBP (£)')),
                         ],
                         onChanged: (val) {

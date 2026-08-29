@@ -43,6 +43,7 @@ class _LoansScreenState extends State<LoansScreen> {
     String selectedBorrowerId = initialBorrowerId ?? borrowers.first.id;
     String selectedFrequency = state.defaultRepaymentFrequency;
     String selectedMethod = state.defaultInterestMethod;
+    String selectedPenaltyType = state.defaultPenaltyType;
 
     final principalCtrl = TextEditingController(text: '3000');
     final rateCtrl = TextEditingController(text: state.defaultInterestRate.toString());
@@ -50,6 +51,7 @@ class _LoansScreenState extends State<LoansScreen> {
     final purposeCtrl = TextEditingController(text: 'Working Capital');
     final dateCtrl = TextEditingController(text: DateTime.now().toIso8601String().split('T')[0]);
     final notesCtrl = TextEditingController();
+    final penaltyValueCtrl = TextEditingController(text: state.defaultPenaltyValue.toString());
 
     String deductionType = 'none'; // 'none', 'fixed', 'percent'
     final deductionValueCtrl = TextEditingController(text: '0');
@@ -128,7 +130,7 @@ class _LoansScreenState extends State<LoansScreen> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            initialValue: selectedFrequency,
+                            value: selectedFrequency,
                             decoration: const InputDecoration(labelText: 'Frequency', border: OutlineInputBorder()),
                             items: const [
                               DropdownMenuItem(value: 'daily', child: Text('Daily')),
@@ -144,7 +146,7 @@ class _LoansScreenState extends State<LoansScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            initialValue: selectedMethod,
+                            value: selectedMethod,
                             decoration: const InputDecoration(labelText: 'Interest Method', border: OutlineInputBorder()),
                             items: const [
                               DropdownMenuItem(value: 'reducing', child: Text('Reducing Balance')),
@@ -199,7 +201,7 @@ class _LoansScreenState extends State<LoansScreen> {
                             decoration: const InputDecoration(labelText: 'Upfront Deduction', border: OutlineInputBorder()),
                             items: const [
                               DropdownMenuItem(value: 'none', child: Text('None')),
-                              DropdownMenuItem(value: 'fixed', child: Text('Fixed Amount (\$)')),
+                              DropdownMenuItem(value: 'fixed', child: Text('Fixed Amount')),
                               DropdownMenuItem(value: 'percent', child: Text('Percentage (%)')),
                             ],
                             onChanged: (val) {
@@ -218,7 +220,41 @@ class _LoansScreenState extends State<LoansScreen> {
                               controller: deductionValueCtrl,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               decoration: InputDecoration(
-                                labelText: deductionType == 'fixed' ? 'Deduction Amount (\$)' : 'Deduction Percentage (%)',
+                                labelText: deductionType == 'fixed' ? 'Deduction Amount' : 'Deduction Percentage (%)',
+                                border: const OutlineInputBorder(),
+                              ),
+                              onChanged: (_) => setModalState(() {}),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: selectedPenaltyType,
+                            decoration: const InputDecoration(labelText: 'Penalty / Multa Type', border: OutlineInputBorder()),
+                            items: const [
+                              DropdownMenuItem(value: 'none', child: Text('None')),
+                              DropdownMenuItem(value: 'fixed_per_period', child: Text('Fixed per overdue period')),
+                              DropdownMenuItem(value: 'percent_per_period', child: Text('Percent (%) per overdue period')),
+                              DropdownMenuItem(value: 'fixed_once', child: Text('Fixed once when overdue')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) setModalState(() => selectedPenaltyType = val);
+                            },
+                          ),
+                        ),
+                        if (selectedPenaltyType != 'none') ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: penaltyValueCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: selectedPenaltyType == 'percent_per_period' ? 'Penalty Rate (%)' : 'Penalty Amount',
                                 border: const OutlineInputBorder(),
                               ),
                               onChanged: (_) => setModalState(() {}),
@@ -295,6 +331,8 @@ class _LoansScreenState extends State<LoansScreen> {
                               interestMethod: selectedMethod,
                             );
 
+                            final penVal = double.tryParse(penaltyValueCtrl.text.trim()) ?? 0.0;
+
                             final newLoan = Loan(
                               id: 'loan_${DateTime.now().millisecondsSinceEpoch}',
                               borrowerId: selectedBorrowerId,
@@ -309,6 +347,8 @@ class _LoansScreenState extends State<LoansScreen> {
                               disbursementDate: dateCtrl.text.trim(),
                               upfrontDeductionType: deductionType,
                               upfrontDeductionValue: dVal,
+                              penaltyType: selectedPenaltyType,
+                              penaltyValue: penVal,
                               creditAssessment: assessment,
                               schedule: sched,
                               payments: [],

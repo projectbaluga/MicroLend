@@ -16,6 +16,8 @@ class Loan {
   final String disbursementDate;
   final String upfrontDeductionType; // 'none', 'fixed', 'percent'
   final double upfrontDeductionValue;
+  final String penaltyType; // 'none', 'fixed_per_period', 'percent_per_period', 'fixed_once'
+  final double penaltyValue;
   final CreditAssessment? creditAssessment;
   final List<ScheduleInstallment> schedule;
   final List<Payment> payments;
@@ -37,6 +39,8 @@ class Loan {
     required this.disbursementDate,
     this.upfrontDeductionType = 'none',
     this.upfrontDeductionValue = 0.0,
+    this.penaltyType = 'none',
+    this.penaltyValue = 0.0,
     this.creditAssessment,
     required this.schedule,
     required this.payments,
@@ -63,6 +67,8 @@ class Loan {
       disbursementDate: map['disbursement_date']?.toString() ?? map['disbursementDate']?.toString() ?? '',
       upfrontDeductionType: map['upfront_deduction_type']?.toString() ?? map['upfrontDeductionType']?.toString() ?? 'none',
       upfrontDeductionValue: (map['upfront_deduction_value'] as num?)?.toDouble() ?? (map['upfrontDeductionValue'] as num?)?.toDouble() ?? 0.0,
+      penaltyType: map['penalty_type']?.toString() ?? map['penaltyType']?.toString() ?? 'none',
+      penaltyValue: (map['penalty_value'] as num?)?.toDouble() ?? (map['penaltyValue'] as num?)?.toDouble() ?? 0.0,
       creditAssessment: map['credit_assessment'] != null
           ? CreditAssessment.fromMap(Map<String, dynamic>.from(map['credit_assessment']))
           : null,
@@ -93,6 +99,8 @@ class Loan {
       'disbursement_date': disbursementDate,
       'upfront_deduction_type': upfrontDeductionType,
       'upfront_deduction_value': upfrontDeductionValue,
+      'penalty_type': penaltyType,
+      'penalty_value': penaltyValue,
       if (creditAssessment != null) 'credit_assessment': creditAssessment!.toMap(),
       'schedule': schedule.map((e) => e.toMap()).toList(),
       'payments': payments.map((e) => e.toMap()).toList(),
@@ -116,6 +124,8 @@ class Loan {
     String? disbursementDate,
     String? upfrontDeductionType,
     double? upfrontDeductionValue,
+    String? penaltyType,
+    double? penaltyValue,
     CreditAssessment? creditAssessment,
     List<ScheduleInstallment>? schedule,
     List<Payment>? payments,
@@ -137,6 +147,8 @@ class Loan {
       disbursementDate: disbursementDate ?? this.disbursementDate,
       upfrontDeductionType: upfrontDeductionType ?? this.upfrontDeductionType,
       upfrontDeductionValue: upfrontDeductionValue ?? this.upfrontDeductionValue,
+      penaltyType: penaltyType ?? this.penaltyType,
+      penaltyValue: penaltyValue ?? this.penaltyValue,
       creditAssessment: creditAssessment ?? this.creditAssessment,
       schedule: schedule ?? this.schedule,
       payments: payments ?? this.payments,
