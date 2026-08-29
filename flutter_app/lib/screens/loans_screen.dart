@@ -5,6 +5,7 @@ import '../store/app_state.dart';
 import '../utils/loan_utils.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/custom_card.dart';
+import '../widgets/responsive_container.dart';
 
 class LoansScreen extends StatefulWidget {
   final Function(String) onSelectLoan;
@@ -270,109 +271,113 @@ class _LoansScreenState extends State<LoansScreen> {
       return matchesSearch && matchesStatus;
     }).toList();
 
+    final isDesktop = ResponsiveContainer.isDesktop(context);
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Loans Portfolio', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ElevatedButton.icon(
-                onPressed: () => _showNewLoanDialog(context),
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('New Loan'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'Search purpose or borrower...',
-                    prefixIcon: Icon(Icons.search, size: 18),
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  onChanged: (val) => setState(() => _searchTerm = val),
+      child: ResponsiveContainer(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Loans Portfolio', style: TextStyle(fontSize: isDesktop ? 20 : 18, fontWeight: FontWeight.bold)),
+                ElevatedButton.icon(
+                  onPressed: () => _showNewLoanDialog(context),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('New Loan'),
                 ),
-              ),
-              const SizedBox(width: 8),
-              DropdownButton<String>(
-                value: _statusFilter,
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All Status')),
-                  DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                  DropdownMenuItem(value: 'active', child: Text('Active')),
-                  DropdownMenuItem(value: 'completed', child: Text('Completed')),
-                  DropdownMenuItem(value: 'defaulted', child: Text('Defaulted')),
-                  DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
-                ],
-                onChanged: (val) => setState(() => _statusFilter = val ?? 'all'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: filtered.isEmpty
-                ? const Center(child: Text('No loans found.'))
-                : ListView.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, idx) {
-                      final loan = filtered[idx];
-                      final b = borrowerMap[loan.borrowerId];
-                      final stats = LoanUtils.getLoanStats(loan);
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Search purpose or borrower...',
+                      prefixIcon: Icon(Icons.search, size: 18),
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                    onChanged: (val) => setState(() => _searchTerm = val),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DropdownButton<String>(
+                  value: _statusFilter,
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All Status')),
+                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                    DropdownMenuItem(value: 'active', child: Text('Active')),
+                    DropdownMenuItem(value: 'completed', child: Text('Completed')),
+                    DropdownMenuItem(value: 'defaulted', child: Text('Defaulted')),
+                    DropdownMenuItem(value: 'rejected', child: Text('Rejected')),
+                  ],
+                  onChanged: (val) => setState(() => _statusFilter = val ?? 'all'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(child: Text('No loans found.', style: TextStyle(fontSize: isDesktop ? 14 : 12)))
+                  : ListView.separated(
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, idx) {
+                        final loan = filtered[idx];
+                        final b = borrowerMap[loan.borrowerId];
+                        final stats = LoanUtils.getLoanStats(loan);
 
-                      return CustomCard(
-                        onTap: () => widget.onSelectLoan(loan.id),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(b?.fullName ?? 'Unknown', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                                AppBadge(text: loan.status, variant: loan.status),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text('${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)} @ ${loan.interestRate}%',
-                                style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                            const SizedBox(height: 8),
-                            if (loan.status == 'pending')
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF059669),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  ),
-                                  onPressed: () => state.approveLoan(loan.id),
-                                  icon: const Icon(Icons.check, size: 14, color: Colors.white),
-                                  label: const Text('Approve', style: TextStyle(fontSize: 11, color: Colors.white)),
-                                ),
-                              )
-                            else
+                        return CustomCard(
+                          onTap: () => widget.onSelectLoan(loan.id),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Balance: ${LoanUtils.formatCurrency(stats.outstandingBalance, state.currencyCode)}',
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                  Text('${stats.progressPct}% Paid',
-                                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  Text(b?.fullName ?? 'Unknown', style: TextStyle(fontSize: isDesktop ? 15 : 14, fontWeight: FontWeight.bold)),
+                                  AppBadge(text: loan.status, variant: loan.status),
                                 ],
                               ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                              const SizedBox(height: 4),
+                              Text('${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)} @ ${loan.interestRate}%',
+                                  style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey)),
+                              const SizedBox(height: 8),
+                              if (loan.status == 'pending')
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF059669),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    ),
+                                    onPressed: () => state.approveLoan(loan.id),
+                                    icon: const Icon(Icons.check, size: 14, color: Colors.white),
+                                    label: const Text('Approve', style: TextStyle(fontSize: 11, color: Colors.white)),
+                                  ),
+                                )
+                              else
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Balance: ${LoanUtils.formatCurrency(stats.outstandingBalance, state.currencyCode)}',
+                                        style: TextStyle(fontSize: isDesktop ? 12 : 11, fontWeight: FontWeight.bold)),
+                                    Text('${stats.progressPct}% Paid',
+                                        style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey)),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
