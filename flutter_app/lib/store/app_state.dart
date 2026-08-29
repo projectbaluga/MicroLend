@@ -8,7 +8,6 @@ import 'offline_store.dart';
 
 class AppState extends ChangeNotifier {
   final OfflineStore store;
-  bool isSyncing = false;
 
   late String _currencyCode;
   late String _dateFormat;
@@ -90,16 +89,6 @@ class AppState extends ChangeNotifier {
         .toList();
   }
 
-  int get pendingQueueCount => store.getQueue().length;
-
-  Future<void> syncOfflineQueue() async {
-    isSyncing = true;
-    notifyListeners();
-    await store.syncAll();
-    isSyncing = false;
-    notifyListeners();
-  }
-
   String exportDataJson() {
     final data = {
       'borrowers': store.getCollection('borrowers'),
@@ -107,6 +96,27 @@ class AppState extends ChangeNotifier {
       'exportedAt': DateTime.now().toIso8601String(),
     };
     return const JsonEncoder.withIndent('  ').convert(data);
+  }
+
+  Future<void> importDataJson(String jsonStr) async {
+    final decoded = jsonDecode(jsonStr);
+    if (decoded is! Map<String, dynamic> ||
+        !decoded.containsKey('borrowers') ||
+        !decoded.containsKey('loans') ||
+        decoded['borrowers'] is! List ||
+        decoded['loans'] is! List) {
+      throw const FormatException('Invalid backup file format: missing borrowers or loans data.');
+    }
+
+    final List borrowersList = decoded['borrowers'];
+    final List loansList = decoded['loans'];
+
+    final borrowers = borrowersList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final loans = loansList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+    await store.saveCollection('borrowers', borrowers);
+    await store.saveCollection('loans', loans);
+    notifyListeners();
   }
 
   Future<void> clearAllData() async {

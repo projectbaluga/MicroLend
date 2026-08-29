@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../store/app_state.dart';
+import '../store/backup_service.dart';
 import '../widgets/custom_card.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -209,22 +210,89 @@ class SettingsScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // Data & Sync Section
+            // Data & Backup Section
             CustomCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Data & Sync', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  const Text('Data & Backup', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Offline Write Queue', style: TextStyle(fontSize: 13)),
-                    subtitle: Text('${state.pendingQueueCount} pending changes', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                    trailing: ElevatedButton.icon(
-                      onPressed: state.syncOfflineQueue,
-                      icon: const Icon(Icons.sync, size: 14),
-                      label: const Text('Sync Now', style: TextStyle(fontSize: 11)),
-                    ),
+                    title: const Text('Back up to File', style: TextStyle(fontSize: 13)),
+                    subtitle: const Text('Save backup JSON to local documents directory', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    trailing: const Icon(Icons.save_alt, size: 18),
+                    onTap: () async {
+                      final jsonStr = state.exportDataJson();
+                      try {
+                        final filePath = await BackupService.saveBackupToFile(jsonStr);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Backup saved to $filePath')),
+                        );
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to save backup file: $e')),
+                        );
+                      }
+                    },
+                  ),
+                  const Divider(height: 16),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Share Backup', style: TextStyle(fontSize: 13)),
+                    subtitle: const Text('Export JSON file to Google Drive, Gmail, or other apps', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    trailing: const Icon(Icons.share, size: 18),
+                    onTap: () async {
+                      final jsonStr = state.exportDataJson();
+                      try {
+                        await BackupService.shareBackup(jsonStr);
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to share backup: $e')),
+                        );
+                      }
+                    },
+                  ),
+                  const Divider(height: 16),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Restore from File', style: TextStyle(fontSize: 13)),
+                    subtitle: const Text('Pick and import backup JSON file', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    trailing: const Icon(Icons.upload_file, size: 18),
+                    onTap: () async {
+                      try {
+                        final content = await BackupService.pickAndReadBackup();
+                        if (content == null) return;
+                        if (!context.mounted) return;
+                        _showConfirmDialog(
+                          context: context,
+                          title: 'Restore Backup from File?',
+                          message: 'This action will overwrite your current local borrowers and loans data with the selected file.',
+                          onConfirm: () async {
+                            try {
+                              await state.importDataJson(content);
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Data successfully restored from backup file!')),
+                              );
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to restore data: $e')),
+                              );
+                            }
+                          },
+                        );
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to read file: $e')),
+                        );
+                      }
+                    },
                   ),
                   const Divider(height: 16),
                   ListTile(
@@ -256,13 +324,13 @@ class SettingsScreen extends StatelessWidget {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Clear All Data', style: TextStyle(fontSize: 13, color: Colors.redAccent)),
-                    subtitle: const Text('Wipe all local storage collections and queue', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    subtitle: const Text('Wipe all local borrowers and loans', style: TextStyle(fontSize: 11, color: Colors.grey)),
                     trailing: const Icon(Icons.delete_forever, size: 18, color: Colors.redAccent),
                     onTap: () {
                       _showConfirmDialog(
                         context: context,
                         title: 'Clear All Data?',
-                        message: 'Are you sure you want to delete all borrowers, loans, and offline write queue records? This action cannot be undone.',
+                        message: 'Are you sure you want to delete all borrowers and loans? This action cannot be undone.',
                         onConfirm: () => state.clearAllData(),
                       );
                     },

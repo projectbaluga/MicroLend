@@ -19,7 +19,7 @@ void main() {
       expect(loans.length, 3);
     });
 
-    test('performs CRUD and updates write queue', () async {
+    test('performs CRUD', () async {
       final store = await OfflineStore.init();
       final newItem = await store.addItem('borrowers', {
         'full_name': 'Test User',
@@ -38,13 +38,6 @@ void main() {
       await store.deleteItem('borrowers', newItem['id']);
       final finalCount = store.getCollection('borrowers').length;
       expect(finalCount, 3);
-
-      final queue = store.getQueue();
-      expect(queue.length, greaterThanOrEqualTo(3));
-
-      final syncResult = await store.syncAll();
-      expect(syncResult['success'], true);
-      expect(store.getQueue().length, 0);
     });
   });
 }
