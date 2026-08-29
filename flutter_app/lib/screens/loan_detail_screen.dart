@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import '../models/borrower.dart';
+import '../models/loan.dart';
 import '../models/payment.dart';
 import '../store/app_state.dart';
 import '../utils/loan_utils.dart';
+import '../utils/receipt_utils.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/app_progress_bar.dart';
 import '../widgets/custom_card.dart';
@@ -20,11 +25,64 @@ class LoanDetailScreen extends StatelessWidget {
     required this.onSelectBorrower,
   });
 
-  void _showRecordPaymentDialog(BuildContext context, String loanId) {
+  void _showTextDialog({
+    required BuildContext context,
+    required String title,
+    required String textContent,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 320,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                textContent,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: textContent));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Copied to clipboard!')),
+                );
+              },
+              child: const Text('Copy Text'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                // ignore: deprecated_member_use
+                Share.share(textContent, subject: title);
+              },
+              icon: const Icon(Icons.share, size: 14),
+              label: const Text('Share'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRecordPaymentDialog(
+    BuildContext context,
+    Loan loan,
+    Borrower borrower,
+    AppState state,
+  ) {
     final amountCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
     final dateCtrl = TextEditingController(text: DateTime.now().toIso8601String().split('T')[0]);
-    String selectedMethod = 'Bank Transfer';
+    String selectedMethod = 'Cash';
 
     showModalBottomSheet(
       context: context,
@@ -46,20 +104,19 @@ class LoanDetailScreen extends StatelessWidget {
               TextField(
                 controller: amountCtrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Amount (\$) *', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Amount *', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 initialValue: selectedMethod,
                 decoration: const InputDecoration(labelText: 'Method', border: OutlineInputBorder()),
                 items: const [
-                  DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer')),
                   DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                  DropdownMenuItem(value: 'Debit Card', child: Text('Debit Card')),
+                  DropdownMenuItem(value: 'GCash / E-Wallet', child: Text('GCash / E-Wallet')),
+                  DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer')),
                   DropdownMenuItem(value: 'Check', child: Text('Check')),
-                  DropdownMenuItem(value: 'Mobile Payment', child: Text('Mobile Payment')),
                 ],
-                onChanged: (val) => selectedMethod = val ?? 'Bank Transfer',
+                onChanged: (val) => selectedMethod = val ?? 'Cash',
               ),
               const SizedBox(height: 10),
               TextField(
@@ -78,7 +135,7 @@ class LoanDetailScreen extends StatelessWidget {
                   TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       final amt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
                       if (amt <= 0) return;
 
@@ -90,10 +147,28 @@ class LoanDetailScreen extends StatelessWidget {
                         note: noteCtrl.text.trim(),
                       );
 
-                      Provider.of<AppState>(context, listen: false).recordPayment(loanId, payment);
+                      await state.recordPayment(loan.id, payment);
+                      if (!ctx.mounted) return;
                       Navigator.pop(ctx);
+
+                      final stats = LoanUtils.getLoanStats(loan);
+                      final receiptText = ReceiptUtils.generatePaymentReceipt(
+                        businessName: state.businessName,
+                        borrower: borrower,
+                        loan: loan,
+                        payment: payment,
+                        runningOutstandingBalance: stats.outstandingBalance,
+                        currencyCode: state.currencyCode,
+                      );
+
+                      if (!context.mounted) return;
+                      _showTextDialog(
+                        context: context,
+                        title: 'Official Payment Receipt',
+                        textContent: receiptText,
+                      );
                     },
-                    child: const Text('Save Payment'),
+                    child: const Text('Save & View Receipt'),
                   ),
                 ],
               ),
@@ -136,42 +211,64 @@ class LoanDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Status Transitions Bar
+            // Status Transitions & Action Bar
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (loan.status == 'pending') ...[
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
-                    onPressed: () => state.approveLoan(loan.id),
-                    icon: const Icon(Icons.check, size: 16, color: Colors.white),
-                    label: const Text('Approve', style: TextStyle(color: Colors.white)),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: () => state.markLoanStatus(loan.id, 'rejected'),
-                    icon: const Icon(Icons.close, size: 16),
-                    label: const Text('Reject'),
-                  ),
-                ],
-                if (loan.status == 'active') ...[
-                  ElevatedButton.icon(
-                    onPressed: () => _showRecordPaymentDialog(context, loan.id),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Record Payment'),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: () => state.markLoanStatus(loan.id, 'completed'),
-                    child: const Text('Complete'),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
-                    onPressed: () => state.markLoanStatus(loan.id, 'defaulted'),
-                    child: const Text('Default'),
-                  ),
-                ],
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final soaText = ReceiptUtils.generateStatementOfAccount(
+                      businessName: state.businessName,
+                      borrower: borrower,
+                      loan: loan,
+                      stats: stats,
+                      currencyCode: state.currencyCode,
+                    );
+                    _showTextDialog(
+                      context: context,
+                      title: 'Statement of Account (SOA)',
+                      textContent: soaText,
+                    );
+                  },
+                  icon: const Icon(Icons.receipt_long, size: 16),
+                  label: const Text('Statement of Account'),
+                ),
+                Row(
+                  children: [
+                    if (loan.status == 'pending') ...[
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+                        onPressed: () => state.approveLoan(loan.id),
+                        icon: const Icon(Icons.check, size: 16, color: Colors.white),
+                        label: const Text('Approve', style: TextStyle(color: Colors.white)),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => state.markLoanStatus(loan.id, 'rejected'),
+                        icon: const Icon(Icons.close, size: 16),
+                        label: const Text('Reject'),
+                      ),
+                    ],
+                    if (loan.status == 'active') ...[
+                      ElevatedButton.icon(
+                        onPressed: () => _showRecordPaymentDialog(context, loan, borrower, state),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Record Payment'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () => state.markLoanStatus(loan.id, 'completed'),
+                        child: const Text('Complete'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
+                        onPressed: () => state.markLoanStatus(loan.id, 'defaulted'),
+                        child: const Text('Default'),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
 
@@ -248,8 +345,22 @@ class LoanDetailScreen extends StatelessWidget {
                                   color: stats.overdueAmount > 0 ? Colors.redAccent : Colors.white)),
                         ],
                       ),
+                      if (stats.penaltyAmount > 0)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Penalty / Multa', style: TextStyle(fontSize: 10, color: Colors.redAccent)),
+                            Text(LoanUtils.formatCurrency(stats.penaltyAmount, state.currencyCode),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                          ],
+                        ),
                     ],
                   ),
+                  if (stats.penaltyAmount > 0) ...[
+                    const SizedBox(height: 6),
+                    Text('Total Due with Penalty: ${LoanUtils.formatCurrency(stats.totalDueWithPenalty, state.currencyCode)}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent)),
+                  ],
                 ],
               ),
             ),

@@ -12,6 +12,8 @@ class LoanStats {
   final double totalPaid;
   final double outstandingBalance;
   final double overdueAmount;
+  final double penaltyAmount;
+  final double totalDueWithPenalty;
   final int progressPct;
   final ScheduleInstallment? nextDue;
   final List<ScheduleInstallment> scheduleWithStatus;
@@ -22,6 +24,8 @@ class LoanStats {
     required this.totalPaid,
     required this.outstandingBalance,
     required this.overdueAmount,
+    required this.penaltyAmount,
+    required this.totalDueWithPenalty,
     required this.progressPct,
     this.nextDue,
     required this.scheduleWithStatus,
@@ -29,7 +33,7 @@ class LoanStats {
 }
 
 class LoanUtils {
-  static String defaultCurrencyCode = 'USD';
+  static String defaultCurrencyCode = 'PHP';
   static String defaultDateFormat = 'MMM d, yyyy';
 
   static double round2(double val) {
@@ -333,6 +337,28 @@ class LoanUtils {
     }).toList();
   }
 
+  static double calculatePenalty(Loan loan, List<ScheduleInstallment> scheduleWithStatus, DateTime referenceDate) {
+    final type = loan.penaltyType;
+    final val = max(0.0, loan.penaltyValue);
+    if (type == 'none' || val == 0.0) return 0.0;
+
+    final overdueInsts = scheduleWithStatus.where((inst) => inst.status == 'overdue').toList();
+    if (overdueInsts.isEmpty) return 0.0;
+
+    double totalPenalty = 0.0;
+    if (type == 'percent_per_period') {
+      for (final inst in overdueInsts) {
+        totalPenalty += inst.remainingAmount * (val / 100.0);
+      }
+    } else if (type == 'fixed_per_period') {
+      totalPenalty = val * overdueInsts.length;
+    } else if (type == 'fixed_once') {
+      totalPenalty = val;
+    }
+
+    return round2(totalPenalty);
+  }
+
   static LoanStats getLoanStats(Loan loan, [DateTime? referenceDate]) {
     final payments = loan.payments;
     final schedule = loan.schedule;
@@ -369,12 +395,18 @@ class LoanUtils {
       loan.upfrontDeductionValue,
     );
 
+    final refDate = referenceDate ?? DateTime.now();
+    final penaltyAmount = calculatePenalty(loan, scheduleWithStatus, refDate);
+    final totalDueWithPenalty = round2(outstandingBalance + penaltyAmount);
+
     return LoanStats(
       totalDisbursed: netDisbursed,
       totalScheduled: round2(totalScheduled),
       totalPaid: round2(totalPaid),
       outstandingBalance: round2(outstandingBalance),
       overdueAmount: round2(overdueAmount),
+      penaltyAmount: penaltyAmount,
+      totalDueWithPenalty: totalDueWithPenalty,
       progressPct: progressPct,
       nextDue: nextDue,
       scheduleWithStatus: scheduleWithStatus,

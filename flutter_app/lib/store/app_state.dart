@@ -11,10 +11,13 @@ class AppState extends ChangeNotifier {
 
   late String _currencyCode;
   late String _dateFormat;
+  late String _businessName;
   late int _defaultTermMonths;
   late double _defaultInterestRate;
   late String _defaultRepaymentFrequency;
   late String _defaultInterestMethod;
+  late String _defaultPenaltyType;
+  late double _defaultPenaltyValue;
   late ThemeMode _themeMode;
 
   AppState(this.store) {
@@ -22,12 +25,15 @@ class AppState extends ChangeNotifier {
   }
 
   void _loadSettings() {
-    _currencyCode = store.getSetting('currencyCode', 'USD');
+    _currencyCode = store.getSetting('currencyCode', 'PHP');
     _dateFormat = store.getSetting('dateFormat', 'MMM d, yyyy');
+    _businessName = store.getSetting('businessName', 'MicroLend Suite');
     _defaultTermMonths = int.tryParse(store.getSetting('defaultTermMonths', '6')) ?? 6;
     _defaultInterestRate = double.tryParse(store.getSetting('defaultInterestRate', '12.0')) ?? 12.0;
     _defaultRepaymentFrequency = store.getSetting('defaultRepaymentFrequency', 'monthly');
     _defaultInterestMethod = store.getSetting('defaultInterestMethod', 'reducing');
+    _defaultPenaltyType = store.getSetting('defaultPenaltyType', 'none');
+    _defaultPenaltyValue = double.tryParse(store.getSetting('defaultPenaltyValue', '0.0')) ?? 0.0;
 
     LoanUtils.defaultCurrencyCode = _currencyCode;
     LoanUtils.defaultDateFormat = _dateFormat;
@@ -38,12 +44,21 @@ class AppState extends ChangeNotifier {
 
   String get currencyCode => _currencyCode;
   String get dateFormat => _dateFormat;
+  String get businessName => _businessName;
   int get defaultTermMonths => _defaultTermMonths;
   double get defaultInterestRate => _defaultInterestRate;
   String get defaultRepaymentFrequency => _defaultRepaymentFrequency;
   String get defaultInterestMethod => _defaultInterestMethod;
+  String get defaultPenaltyType => _defaultPenaltyType;
+  double get defaultPenaltyValue => _defaultPenaltyValue;
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
+
+  Future<void> setBusinessName(String name) async {
+    _businessName = name;
+    await store.setSetting('businessName', name);
+    notifyListeners();
+  }
 
   Future<void> setCurrencyCode(String code) async {
     _currencyCode = code;
@@ -80,6 +95,18 @@ class AppState extends ChangeNotifier {
   Future<void> setDefaultInterestMethod(String method) async {
     _defaultInterestMethod = method;
     await store.setSetting('defaultInterestMethod', method);
+    notifyListeners();
+  }
+
+  Future<void> setDefaultPenaltyType(String type) async {
+    _defaultPenaltyType = type;
+    await store.setSetting('defaultPenaltyType', type);
+    notifyListeners();
+  }
+
+  Future<void> setDefaultPenaltyValue(double value) async {
+    _defaultPenaltyValue = value;
+    await store.setSetting('defaultPenaltyValue', value.toString());
     notifyListeners();
   }
 
