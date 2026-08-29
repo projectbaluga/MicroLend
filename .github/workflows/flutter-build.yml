@@ -11,6 +11,12 @@
 # On tag pushes (e.g. `v1.2.3`), a GitHub Release is automatically published attaching
 # Android APK, App Bundle (AAB), and zipped Windows Desktop binaries.
 #
+# BRANDING OVERRIDES & TRIGGER SCOPE:
+# - Manual inputs (`app_name`, `app_description`, `brand_color`, `icon_url`) are set when manually running
+#   the workflow via `workflow_dispatch` ("Run workflow").
+# - For automated triggers (e.g. tag or push events), default branding is fallback unless Repository Variables
+#   (vars.APP_NAME, vars.APP_DESCRIPTION, vars.BRAND_COLOR, vars.ICON_URL) are set in GitHub Settings.
+#
 # SIGNING & RELEASE DISTRIBUTION NOTES:
 # 1. Android Release Signing:
 #    - To produce signed APK/AAB builds for Google Play or distribution, create an Android keystore
@@ -124,25 +130,13 @@ jobs:
         run: flutter pub get
 
       - name: Apply Branding Overrides
-        if: ${{ inputs.icon_url != '' || inputs.app_name != '' || inputs.app_description != '' || inputs.brand_color != '' }}
-        run: |
-          if [ -n "${{ inputs.icon_url }}" ]; then
-            curl -sSL "${{ inputs.icon_url }}" -o assets/branding/app_icon.png
-            cp assets/branding/app_icon.png assets/branding/splash_logo.png
-            dart run flutter_launcher_icons
-            dart run flutter_native_splash:create
-          fi
-          if [ -n "${{ inputs.app_name }}" ]; then
-            sed -i "s/android:label=\"[^\"]*\"/android:label=\"${{ inputs.app_name }}\"/g" android/app/src/main/AndroidManifest.xml
-            sed -i "s/<string>.*<\/string><!-- CFBundleDisplayName -->/<string>${{ inputs.app_name }}<\/string>/g" ios/Runner/Info.plist || true
-            sed -i "s/<title>.*<\/title>/<title>${{ inputs.app_name }}<\/title>/g" web/index.html
-            sed -i "s/\"name\": \"[^\"]*\"/\"name\": \"${{ inputs.app_name }}\"/g" web/manifest.json
-            sed -i "s/\"short_name\": \"[^\"]*\"/\"short_name\": \"${{ inputs.app_name }}\"/g" web/manifest.json
-          fi
-          if [ -n "${{ inputs.brand_color }}" ]; then
-            sed -i "s/\"background_color\": \"[^\"]*\"/\"background_color\": \"${{ inputs.brand_color }}\"/g" web/manifest.json
-            sed -i "s/\"theme_color\": \"[^\"]*\"/\"theme_color\": \"${{ inputs.brand_color }}\"/g" web/manifest.json
-          fi
+        shell: bash
+        env:
+          ICON_URL: ${{ inputs.icon_url || vars.ICON_URL }}
+          APP_NAME: ${{ inputs.app_name || vars.APP_NAME }}
+          APP_DESCRIPTION: ${{ inputs.app_description || vars.APP_DESCRIPTION }}
+          BRAND_COLOR: ${{ inputs.brand_color || vars.BRAND_COLOR }}
+        run: bash tool/apply_branding.sh
 
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
@@ -151,10 +145,10 @@ jobs:
         run: flutter test
 
       - name: Build Android APK (Release)
-        run: flutter build apk --release --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
+        run: flutter build apk --release --dart-define=APP_NAME="${{ inputs.app_name || vars.APP_NAME }}" --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
 
       - name: Build Android App Bundle (AAB Release)
-        run: flutter build appbundle --release --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
+        run: flutter build appbundle --release --dart-define=APP_NAME="${{ inputs.app_name || vars.APP_NAME }}" --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
@@ -187,21 +181,16 @@ jobs:
         run: flutter pub get
 
       - name: Apply Branding Overrides
-        if: ${{ inputs.icon_url != '' || inputs.app_name != '' || inputs.app_description != '' || inputs.brand_color != '' }}
-        run: |
-          if [ -n "${{ inputs.icon_url }}" ]; then
-            curl -sSL "${{ inputs.icon_url }}" -o assets/branding/app_icon.png
-            cp assets/branding/app_icon.png assets/branding/splash_logo.png
-            dart run flutter_launcher_icons
-            dart run flutter_native_splash:create
-          fi
-          if [ -n "${{ inputs.app_name }}" ]; then
-            sed -i '' "s/<title>.*<\/title>/<title>${{ inputs.app_name }}<\/title>/g" web/index.html || true
-            sed -i '' "s/\"name\": \"[^\"]*\"/\"name\": \"${{ inputs.app_name }}\"/g" web/manifest.json || true
-          fi
+        shell: bash
+        env:
+          ICON_URL: ${{ inputs.icon_url || vars.ICON_URL }}
+          APP_NAME: ${{ inputs.app_name || vars.APP_NAME }}
+          APP_DESCRIPTION: ${{ inputs.app_description || vars.APP_DESCRIPTION }}
+          BRAND_COLOR: ${{ inputs.brand_color || vars.BRAND_COLOR }}
+        run: bash tool/apply_branding.sh
 
       - name: Build iOS App (Release, Unsigned)
-        run: flutter build ios --release --no-codesign --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
+        run: flutter build ios --release --no-codesign --dart-define=APP_NAME="${{ inputs.app_name || vars.APP_NAME }}" --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
 
       - name: Upload Unsigned iOS Build Artifact
         uses: actions/upload-artifact@v4
@@ -228,15 +217,13 @@ jobs:
         run: flutter pub get
 
       - name: Apply Branding Overrides
-        if: ${{ inputs.icon_url != '' || inputs.app_name != '' || inputs.app_description != '' || inputs.brand_color != '' }}
         shell: bash
-        run: |
-          if [ -n "${{ inputs.icon_url }}" ]; then
-            curl -sSL "${{ inputs.icon_url }}" -o assets/branding/app_icon.png
-            cp assets/branding/app_icon.png assets/branding/splash_logo.png
-            dart run flutter_launcher_icons
-            dart run flutter_native_splash:create
-          fi
+        env:
+          ICON_URL: ${{ inputs.icon_url || vars.ICON_URL }}
+          APP_NAME: ${{ inputs.app_name || vars.APP_NAME }}
+          APP_DESCRIPTION: ${{ inputs.app_description || vars.APP_DESCRIPTION }}
+          BRAND_COLOR: ${{ inputs.brand_color || vars.BRAND_COLOR }}
+        run: bash tool/apply_branding.sh
 
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
@@ -245,7 +232,7 @@ jobs:
         run: flutter test
 
       - name: Build Windows Executable (Release)
-        run: flutter build windows --release --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
+        run: flutter build windows --release --dart-define=APP_NAME="${{ inputs.app_name || vars.APP_NAME }}" --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
 
       - name: Upload Windows Desktop Artifact
         uses: actions/upload-artifact@v4

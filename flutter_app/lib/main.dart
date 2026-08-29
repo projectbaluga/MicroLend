@@ -21,6 +21,9 @@ void main() async {
   );
 }
 
+const String _envAppName = String.fromEnvironment('APP_NAME', defaultValue: 'MicroLend');
+final String appTitle = _envAppName.trim().isEmpty ? 'MicroLend' : _envAppName;
+
 class MicroLendApp extends StatelessWidget {
   const MicroLendApp({super.key});
 
@@ -29,7 +32,7 @@ class MicroLendApp extends StatelessWidget {
     final state = Provider.of<AppState>(context);
 
     return MaterialApp(
-      title: 'MicroLend',
+      title: appTitle,
       debugShowCheckedModeBanner: false,
       themeMode: state.themeMode,
       theme: ThemeData(
@@ -82,7 +85,7 @@ class _MainShellState extends State<MainShell> {
     final state = Provider.of<AppState>(context);
     final isDesktop = MediaQuery.of(context).size.width >= 700;
 
-    String title = 'MicroLend';
+    String title = appTitle;
     if (_selectedLoanId != null) {
       title = 'Loan Details';
     } else if (_selectedBorrowerId != null) {
