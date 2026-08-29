@@ -130,7 +130,7 @@ class _LoansScreenState extends State<LoansScreen> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: selectedFrequency,
+                            initialValue: selectedFrequency,
                             decoration: const InputDecoration(labelText: 'Frequency', border: OutlineInputBorder()),
                             items: const [
                               DropdownMenuItem(value: 'daily', child: Text('Daily')),
@@ -146,7 +146,7 @@ class _LoansScreenState extends State<LoansScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: selectedMethod,
+                            initialValue: selectedMethod,
                             decoration: const InputDecoration(labelText: 'Interest Method', border: OutlineInputBorder()),
                             items: const [
                               DropdownMenuItem(value: 'reducing', child: Text('Reducing Balance')),
@@ -234,7 +234,7 @@ class _LoansScreenState extends State<LoansScreen> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: selectedPenaltyType,
+                            initialValue: selectedPenaltyType,
                             decoration: const InputDecoration(labelText: 'Penalty / Multa Type', border: OutlineInputBorder()),
                             items: const [
                               DropdownMenuItem(value: 'none', child: Text('None')),
