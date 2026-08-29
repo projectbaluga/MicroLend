@@ -13,6 +13,8 @@ class AppState extends ChangeNotifier {
   late String _dateFormat;
   late int _defaultTermMonths;
   late double _defaultInterestRate;
+  late String _defaultRepaymentFrequency;
+  late String _defaultInterestMethod;
   late ThemeMode _themeMode;
 
   AppState(this.store) {
@@ -24,6 +26,8 @@ class AppState extends ChangeNotifier {
     _dateFormat = store.getSetting('dateFormat', 'MMM d, yyyy');
     _defaultTermMonths = int.tryParse(store.getSetting('defaultTermMonths', '6')) ?? 6;
     _defaultInterestRate = double.tryParse(store.getSetting('defaultInterestRate', '12.0')) ?? 12.0;
+    _defaultRepaymentFrequency = store.getSetting('defaultRepaymentFrequency', 'monthly');
+    _defaultInterestMethod = store.getSetting('defaultInterestMethod', 'reducing');
 
     LoanUtils.defaultCurrencyCode = _currencyCode;
     LoanUtils.defaultDateFormat = _dateFormat;
@@ -36,6 +40,8 @@ class AppState extends ChangeNotifier {
   String get dateFormat => _dateFormat;
   int get defaultTermMonths => _defaultTermMonths;
   double get defaultInterestRate => _defaultInterestRate;
+  String get defaultRepaymentFrequency => _defaultRepaymentFrequency;
+  String get defaultInterestMethod => _defaultInterestMethod;
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 
@@ -62,6 +68,18 @@ class AppState extends ChangeNotifier {
   Future<void> setDefaultInterestRate(double rate) async {
     _defaultInterestRate = rate;
     await store.setSetting('defaultInterestRate', rate.toString());
+    notifyListeners();
+  }
+
+  Future<void> setDefaultRepaymentFrequency(String freq) async {
+    _defaultRepaymentFrequency = freq;
+    await store.setSetting('defaultRepaymentFrequency', freq);
+    notifyListeners();
+  }
+
+  Future<void> setDefaultInterestMethod(String method) async {
+    _defaultInterestMethod = method;
+    await store.setSetting('defaultInterestMethod', method);
     notifyListeners();
   }
 

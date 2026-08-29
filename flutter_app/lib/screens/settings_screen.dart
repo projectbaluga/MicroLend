@@ -175,8 +175,46 @@ class SettingsScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Default Term (Months)', style: TextStyle(fontSize: 13)),
-                      Text('${state.defaultTermMonths} mo', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      const Text('Default Repayment Frequency', style: TextStyle(fontSize: 13)),
+                      DropdownButton<String>(
+                        value: state.defaultRepaymentFrequency,
+                        items: const [
+                          DropdownMenuItem(value: 'daily', child: Text('Daily')),
+                          DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                          DropdownMenuItem(value: 'biweekly', child: Text('Bi-weekly')),
+                          DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) state.setDefaultRepaymentFrequency(val);
+                        },
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Default Interest Method', style: TextStyle(fontSize: 13)),
+                      DropdownButton<String>(
+                        value: state.defaultInterestMethod,
+                        items: const [
+                          DropdownMenuItem(value: 'reducing', child: Text('Reducing Balance')),
+                          DropdownMenuItem(value: 'flat', child: Text('Flat / Add-on ("5-6")')),
+                          DropdownMenuItem(value: 'interest_only', child: Text('Interest-Only')),
+                          DropdownMenuItem(value: 'one_time', child: Text('One-Time Payment')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) state.setDefaultInterestMethod(val);
+                        },
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Default Term (Periods)', style: TextStyle(fontSize: 13)),
+                      Text('${state.defaultTermMonths} periods', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Slider(
@@ -184,7 +222,7 @@ class SettingsScreen extends StatelessWidget {
                     min: 1,
                     max: 60,
                     divisions: 59,
-                    label: '${state.defaultTermMonths} mo',
+                    label: '${state.defaultTermMonths} periods',
                     onChanged: (val) => state.setDefaultTermMonths(val.round()),
                   ),
                   const Divider(height: 16),

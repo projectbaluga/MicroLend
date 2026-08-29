@@ -186,12 +186,20 @@ class LoanDetailScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(loan.purpose, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      AppBadge(text: loan.status, variant: loan.status),
+                      Row(
+                        children: [
+                          AppBadge(text: loan.repaymentFrequency, variant: 'low'),
+                          const SizedBox(width: 4),
+                          AppBadge(text: loan.status, variant: loan.status),
+                        ],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text('Principal: ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)} @ ${loan.interestRate}% • ${loan.termMonths} mo',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(
+                    'Principal: ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)} @ ${loan.interestRate}% • ${loan.termCount} ${loan.repaymentFrequency} period(s) (${loan.interestMethod.replaceAll('_', ' ')})',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
                   if (loan.upfrontDeductionType != 'none') ...[
                     const SizedBox(height: 4),
                     Text('Upfront Deduction: -${LoanUtils.formatCurrency(deductionAmount, state.currencyCode)} (${loan.upfrontDeductionType == 'percent' ? '${loan.upfrontDeductionValue}%' : 'fixed'})',

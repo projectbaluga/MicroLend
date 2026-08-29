@@ -91,15 +91,39 @@ class LoanUtils {
     return '${rate.toStringAsFixed(1)}%';
   }
 
+  static DateTime calculateDueDate(DateTime startDate, String frequency, int periodIndex) {
+    switch (frequency) {
+      case 'daily':
+        return startDate.add(Duration(days: periodIndex));
+      case 'weekly':
+        return startDate.add(Duration(days: periodIndex * 7));
+      case 'biweekly':
+        return startDate.add(Duration(days: periodIndex * 14));
+      case 'monthly':
+      default:
+        var year = startDate.year;
+        var month = startDate.month + periodIndex;
+        while (month > 12) {
+          month -= 12;
+          year += 1;
+        }
+        final day = min(startDate.day, 28);
+        return DateTime(year, month, day);
+    }
+  }
+
   static List<ScheduleInstallment> generateSchedule(
     double principal,
-    double interestRateAnnual,
-    int termMonths,
-    String disbursementDate,
-  ) {
+    double interestRate,
+    int termCount,
+    String disbursementDate, {
+    String repaymentFrequency = 'monthly',
+    String interestMethod = 'reducing',
+  }) {
     final p = max(0.0, principal);
-    final rate = max(0.0, interestRateAnnual);
-    final n = max(1, termMonths);
+    final rate = max(0.0, interestRate);
+    final isOneTime = interestMethod == 'one_time';
+    final n = isOneTime ? 1 : max(1, termCount);
 
     DateTime startDate;
     try {
@@ -108,46 +132,146 @@ class LoanUtils {
       startDate = DateTime.now();
     }
 
-    final r = (rate / 100.0) / 12.0;
+    final List<ScheduleInstallment> schedule = [];
 
-    double monthlyPayment = 0.0;
+    if (interestMethod == 'flat') {
+      final totalInterest = p * (rate / 100.0);
+      final principalPerPeriod = p / n;
+      final interestPerPeriod = totalInterest / n;
+      double balance = p;
+
+      for (int i = 1; i <= n; i++) {
+        final dueDate = calculateDueDate(startDate, repaymentFrequency, i);
+        final dueDateStr = DateFormat('yyyy-MM-dd').format(dueDate);
+
+        double prin = principalPerPeriod;
+        double instInterest = interestPerPeriod;
+
+        if (i == n) {
+          prin = balance;
+          balance = 0.0;
+        } else {
+          balance -= prin;
+        }
+
+        schedule.add(ScheduleInstallment(
+          installmentNo: i,
+          dueDate: dueDateStr,
+          amount: round2(prin + instInterest),
+          principal: round2(prin),
+          interest: round2(instInterest),
+          balance: max(0.0, round2(balance)),
+        ));
+      }
+      return schedule;
+    }
+
+    if (interestMethod == 'interest_only') {
+      double perPeriodRate = 0.0;
+      switch (repaymentFrequency) {
+        case 'daily':
+          perPeriodRate = (rate / 100.0) / 365.0;
+          break;
+        case 'weekly':
+          perPeriodRate = (rate / 100.0) / 52.0;
+          break;
+        case 'biweekly':
+          perPeriodRate = (rate / 100.0) / 26.0;
+          break;
+        case 'monthly':
+        default:
+          perPeriodRate = (rate / 100.0) / 12.0;
+          break;
+      }
+
+      final interestPerPeriod = p * perPeriodRate;
+      double balance = p;
+
+      for (int i = 1; i <= n; i++) {
+        final dueDate = calculateDueDate(startDate, repaymentFrequency, i);
+        final dueDateStr = DateFormat('yyyy-MM-dd').format(dueDate);
+
+        final prin = (i == n) ? p : 0.0;
+        if (i == n) balance = 0.0;
+
+        schedule.add(ScheduleInstallment(
+          installmentNo: i,
+          dueDate: dueDateStr,
+          amount: round2(prin + interestPerPeriod),
+          principal: round2(prin),
+          interest: round2(interestPerPeriod),
+          balance: max(0.0, round2(balance)),
+        ));
+      }
+      return schedule;
+    }
+
+    if (interestMethod == 'one_time') {
+      final dueDate = calculateDueDate(startDate, repaymentFrequency, 1);
+      final dueDateStr = DateFormat('yyyy-MM-dd').format(dueDate);
+      final totalInterest = p * (rate / 100.0);
+
+      schedule.add(ScheduleInstallment(
+        installmentNo: 1,
+        dueDate: dueDateStr,
+        amount: round2(p + totalInterest),
+        principal: round2(p),
+        interest: round2(totalInterest),
+        balance: 0.0,
+      ));
+      return schedule;
+    }
+
+    // Default: 'reducing' (amortizing balance)
+    double perPeriodRate = 0.0;
+    switch (repaymentFrequency) {
+      case 'daily':
+        perPeriodRate = (rate / 100.0) / 365.0;
+        break;
+      case 'weekly':
+        perPeriodRate = (rate / 100.0) / 52.0;
+        break;
+      case 'biweekly':
+        perPeriodRate = (rate / 100.0) / 26.0;
+        break;
+      case 'monthly':
+      default:
+        perPeriodRate = (rate / 100.0) / 12.0;
+        break;
+    }
+
+    final r = perPeriodRate;
+    double periodPayment = 0.0;
     if (r > 0) {
-      monthlyPayment = (p * r * pow(1 + r, n)) / (pow(1 + r, n) - 1);
+      periodPayment = (p * r * pow(1 + r, n)) / (pow(1 + r, n) - 1);
     } else {
-      monthlyPayment = p / n;
+      periodPayment = p / n;
     }
 
     double balance = p;
-    final List<ScheduleInstallment> schedule = [];
 
     for (int i = 1; i <= n; i++) {
-      var year = startDate.year;
-      var month = startDate.month + i;
-      while (month > 12) {
-        month -= 12;
-        year += 1;
-      }
-      final day = min(startDate.day, 28);
-      final dueDateStr = DateFormat('yyyy-MM-dd').format(DateTime(year, month, day));
+      final dueDate = calculateDueDate(startDate, repaymentFrequency, i);
+      final dueDateStr = DateFormat('yyyy-MM-dd').format(dueDate);
 
-      final interestForMonth = balance * r;
-      double principalForMonth = monthlyPayment - interestForMonth;
+      final interestForPeriod = balance * r;
+      double principalForPeriod = periodPayment - interestForPeriod;
 
-      if (i == n || (balance - principalForMonth) < 0.01) {
-        principalForMonth = balance;
+      if (i == n || (balance - principalForPeriod) < 0.01) {
+        principalForPeriod = balance;
         balance = 0.0;
       } else {
-        balance = balance - principalForMonth;
+        balance -= principalForPeriod;
       }
 
-      final installmentAmount = principalForMonth + interestForMonth;
+      final installmentAmount = principalForPeriod + interestForPeriod;
 
       schedule.add(ScheduleInstallment(
         installmentNo: i,
         dueDate: dueDateStr,
         amount: round2(installmentAmount),
-        principal: round2(principalForMonth),
-        interest: round2(interestForMonth),
+        principal: round2(principalForPeriod),
+        interest: round2(interestForPeriod),
         balance: max(0.0, round2(balance)),
       ));
     }
