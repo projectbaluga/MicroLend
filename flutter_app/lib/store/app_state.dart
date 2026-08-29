@@ -7,6 +7,14 @@ import '../utils/loan_utils.dart';
 import 'offline_store.dart';
 
 class AppState extends ChangeNotifier {
+  static const Map<String, List<String>> _allowedTransitions = {
+    'pending': ['active', 'rejected'],
+    'active': ['completed', 'defaulted'],
+    'completed': [],
+    'defaulted': [],
+    'rejected': [],
+  };
+
   final OfflineStore store;
 
   late String _currencyCode;
@@ -201,23 +209,39 @@ class AppState extends ChangeNotifier {
 
   Future<void> approveLoan(String loanId) async {
     final loan = loans.firstWhere((l) => l.id == loanId);
-    final todayStr = DateTime.now().toIso8601String().split('T')[0];
-    final updatedSchedule = LoanUtils.generateSchedule(
-      loan.principal,
-      loan.interestRate,
-      loan.termMonths,
-      todayStr,
-    );
+    if (loan.status != 'pending') {
+      throw ArgumentError('Cannot approve loan with status "${loan.status}". Only pending loans can be approved.');
+    }
+
+    final disbursementDate = loan.disbursementDate.isNotEmpty
+        ? loan.disbursementDate
+        : DateTime.now().toIso8601String().split('T')[0];
+
+    final updatedSchedule = loan.schedule.isNotEmpty
+        ? loan.schedule
+        : LoanUtils.generateSchedule(
+            loan.principal,
+            loan.interestRate,
+            loan.termCount,
+            disbursementDate,
+            repaymentFrequency: loan.repaymentFrequency,
+            interestMethod: loan.interestMethod,
+          );
 
     await store.updateItem('loans', loanId, {
       'status': 'active',
-      'disbursement_date': todayStr,
+      'disbursement_date': disbursementDate,
       'schedule': updatedSchedule.map((e) => e.toMap()).toList(),
     });
     notifyListeners();
   }
 
   Future<void> markLoanStatus(String loanId, String status) async {
+    final loan = loans.firstWhere((l) => l.id == loanId);
+    final allowed = _allowedTransitions[loan.status] ?? [];
+    if (!allowed.contains(status)) {
+      throw ArgumentError('Cannot transition loan status from "${loan.status}" to "$status".');
+    }
     await store.updateItem('loans', loanId, {'status': status});
     notifyListeners();
   }
@@ -228,9 +252,10 @@ class AppState extends ChangeNotifier {
 
     final stats = LoanUtils.getLoanStats(loan);
     final totalPaidNow = updatedPayments.fold(0.0, (s, p) => s + p.amount);
+    final totalRequired = LoanUtils.round2(stats.totalScheduled + stats.penaltyAmount);
 
     String newStatus = loan.status;
-    if (totalPaidNow >= stats.totalScheduled && loan.status == 'active') {
+    if (totalPaidNow >= totalRequired && loan.status == 'active') {
       newStatus = 'completed';
     }
 

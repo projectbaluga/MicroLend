@@ -84,96 +84,150 @@ class LoanDetailScreen extends StatelessWidget {
     final dateCtrl = TextEditingController(text: DateTime.now().toIso8601String().split('T')[0]);
     String selectedMethod = 'Cash';
 
+    final stats = LoanUtils.getLoanStats(loan);
+    final maxAmount = stats.totalDueWithPenalty;
+
+    bool isSaving = false;
+    String? errorMessage;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            top: 16,
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Record Repayment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: amountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Amount *', border: OutlineInputBorder()),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                top: 16,
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
               ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                initialValue: selectedMethod,
-                decoration: const InputDecoration(labelText: 'Method', border: OutlineInputBorder()),
-                items: const [
-                  DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                  DropdownMenuItem(value: 'GCash / E-Wallet', child: Text('GCash / E-Wallet')),
-                  DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer')),
-                  DropdownMenuItem(value: 'Check', child: Text('Check')),
-                ],
-                onChanged: (val) => selectedMethod = val ?? 'Cash',
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: dateCtrl,
-                decoration: const InputDecoration(labelText: 'Payment Date (YYYY-MM-DD)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: noteCtrl,
-                decoration: const InputDecoration(labelText: 'Note', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final amt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
-                      if (amt <= 0) return;
-
-                      final payment = Payment(
-                        id: 'pay_${DateTime.now().millisecondsSinceEpoch}',
-                        date: dateCtrl.text.trim(),
-                        amount: amt,
-                        method: selectedMethod,
-                        note: noteCtrl.text.trim(),
-                      );
-
-                      await state.recordPayment(loan.id, payment);
-                      if (!ctx.mounted) return;
-                      Navigator.pop(ctx);
-
-                      final stats = LoanUtils.getLoanStats(loan);
-                      final receiptText = ReceiptUtils.generatePaymentReceipt(
-                        businessName: state.businessName,
-                        borrower: borrower,
-                        loan: loan,
-                        payment: payment,
-                        runningOutstandingBalance: stats.outstandingBalance,
-                        currencyCode: state.currencyCode,
-                      );
-
-                      if (!context.mounted) return;
-                      _showTextDialog(
-                        context: context,
-                        title: 'Official Payment Receipt',
-                        textContent: receiptText,
-                      );
+                  const Text('Record Repayment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amountCtrl,
+                    enabled: !isSaving,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Amount *',
+                      helperText: 'Max amount due: ${LoanUtils.formatCurrency(maxAmount, state.currencyCode)}',
+                      errorText: errorMessage,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (_) {
+                      if (errorMessage != null) {
+                        setModalState(() {
+                          errorMessage = null;
+                        });
+                      }
                     },
-                    child: const Text('Save & View Receipt'),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedMethod,
+                    decoration: const InputDecoration(labelText: 'Method', border: OutlineInputBorder()),
+                    items: const [
+                      DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                      DropdownMenuItem(value: 'GCash / E-Wallet', child: Text('GCash / E-Wallet')),
+                      DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer')),
+                      DropdownMenuItem(value: 'Check', child: Text('Check')),
+                    ],
+                    onChanged: isSaving ? null : (val) => selectedMethod = val ?? 'Cash',
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: dateCtrl,
+                    enabled: !isSaving,
+                    decoration: const InputDecoration(labelText: 'Payment Date (YYYY-MM-DD)', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: noteCtrl,
+                    enabled: !isSaving,
+                    decoration: const InputDecoration(labelText: 'Note', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                final amt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+                                if (amt <= 0) {
+                                  setModalState(() {
+                                    errorMessage = 'Please enter a valid amount greater than 0';
+                                  });
+                                  return;
+                                }
+
+                                if (amt > maxAmount + 0.001) {
+                                  setModalState(() {
+                                    errorMessage = 'Amount cannot exceed balance due (${LoanUtils.formatCurrency(maxAmount, state.currencyCode)})';
+                                  });
+                                  return;
+                                }
+
+                                setModalState(() {
+                                  isSaving = true;
+                                  errorMessage = null;
+                                });
+
+                                final payment = Payment(
+                                  id: 'pay_${DateTime.now().millisecondsSinceEpoch}',
+                                  date: dateCtrl.text.trim(),
+                                  amount: amt,
+                                  method: selectedMethod,
+                                  note: noteCtrl.text.trim(),
+                                );
+
+                                await state.recordPayment(loan.id, payment);
+                                if (!ctx.mounted) return;
+                                Navigator.pop(ctx);
+
+                                final updatedLoan = state.loans.firstWhere((l) => l.id == loan.id, orElse: () => loan);
+                                final updatedStats = LoanUtils.getLoanStats(updatedLoan);
+                                final receiptText = ReceiptUtils.generatePaymentReceipt(
+                                  businessName: state.businessName,
+                                  borrower: borrower,
+                                  loan: updatedLoan,
+                                  payment: payment,
+                                  runningOutstandingBalance: updatedStats.outstandingBalance,
+                                  currencyCode: state.currencyCode,
+                                );
+
+                                if (!context.mounted) return;
+                                _showTextDialog(
+                                  context: context,
+                                  title: 'Official Payment Receipt',
+                                  textContent: receiptText,
+                                );
+                              },
+                        child: isSaving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Save & View Receipt'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
