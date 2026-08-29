@@ -30,16 +30,15 @@ class BackupService {
   }
 
   static Future<String?> pickAndReadBackup() async {
-    final result = await FilePicker.pickFiles(
+    final pickedFile = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
 
-    if (result.isEmpty) {
+    if (pickedFile == null) {
       return null;
     }
 
-    final pickedFile = result.first;
     if (pickedFile.path != null) {
       final file = File(pickedFile.path!);
       return await file.readAsString();

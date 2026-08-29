@@ -1,8 +1,15 @@
 # MicroLend Flutter App CI/CD Workflow
 #
-# PREREQUISITE ASSUMPTION:
-# This workflow assumes that the Flutter project exists in the `flutter_app/` directory
-# at the repository root, containing its own `pubspec.yaml` file.
+# AUTOMATIC VERSIONING & RELEASE STRATEGY:
+# - Build Number: Automatically set to ${{ github.run_number }} (auto-incrementing per run).
+# - Version Name Precedence:
+#     1. Git Tag (e.g., v1.2.3 -> "1.2.3") when triggered by pushing a tag matching `v*.*.*`.
+#     2. Manual input parameter `version_name` when triggered via `workflow_dispatch`.
+#     3. Fallback: Base version parsed from `flutter_app/pubspec.yaml` (e.g., "1.0.0").
+#
+# RELEASES:
+# On tag pushes (e.g. `v1.2.3`), a GitHub Release is automatically published attaching
+# Android APK, App Bundle (AAB), and zipped Windows Desktop binaries.
 #
 # SIGNING & RELEASE DISTRIBUTION NOTES:
 # 1. Android Release Signing:
@@ -26,18 +33,59 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version Name override (e.g. 1.2.3). Leave blank to use tag or pubspec default.'
+        required: false
+        default: ''
 
 defaults:
   run:
     working-directory: flutter_app
 
 jobs:
+  version:
+    name: Compute Version Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.compute.outputs.version_name }}
+      build_number: ${{ steps.compute.outputs.build_number }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compute Version Name and Build Number
+        id: compute
+        run: |
+          BUILD_NUMBER="${{ github.run_number }}"
+
+          # 1. Parse base version from pubspec.yaml (part before '+')
+          PUBSPEC_VERSION=$(grep '^version:' pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
+
+          # 2. Determine version_name precedence: Tag > Manual Input > Pubspec Fallback
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+            VERSION_NAME="${TAG_NAME#v}"
+          elif [ -n "${{ inputs.version_name }}" ]; then
+            VERSION_NAME="${{ inputs.version_name }}"
+          else
+            VERSION_NAME="$PUBSPEC_VERSION"
+          fi
+
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "Computed Version Name: $VERSION_NAME"
+          echo "Computed Build Number: $BUILD_NUMBER"
+
   android-build:
     name: Build Android (APK & AAB)
+    needs: version
     runs-on: ubuntu-latest
 
     steps:
@@ -66,25 +114,26 @@ jobs:
         run: flutter test
 
       - name: Build Android APK (Release)
-        run: flutter build apk --release
+        run: flutter build apk --release --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
 
       - name: Build Android App Bundle (AAB Release)
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: microlend-android-apk
+          name: microlend-android-apk-${{ needs.version.outputs.version_name }}+${{ needs.version.outputs.build_number }}
           path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload Release AAB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: microlend-android-aab
+          name: microlend-android-aab-${{ needs.version.outputs.version_name }}+${{ needs.version.outputs.build_number }}
           path: flutter_app/build/app/outputs/bundle/release/app-release.aab
 
   ios-build:
     name: Build iOS (Unsigned)
+    needs: version
     runs-on: macos-latest
 
     steps:
@@ -101,16 +150,17 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS App (Release, Unsigned)
-        run: flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
 
       - name: Upload Unsigned iOS Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: microlend-ios-unsigned
+          name: microlend-ios-unsigned-${{ needs.version.outputs.version_name }}+${{ needs.version.outputs.build_number }}
           path: flutter_app/build/ios/iphoneos
 
   windows-build:
     name: Build Windows Desktop (Release)
+    needs: version
     runs-on: windows-latest
 
     steps:
@@ -133,10 +183,52 @@ jobs:
         run: flutter test
 
       - name: Build Windows Executable (Release)
-        run: flutter build windows --release
+        run: flutter build windows --release --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
 
       - name: Upload Windows Desktop Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: microlend-windows-desktop
+          name: microlend-windows-desktop-${{ needs.version.outputs.version_name }}+${{ needs.version.outputs.build_number }}
           path: flutter_app/build/windows/x64/runner/Release/
+
+  release:
+    name: Publish GitHub Release
+    if: github.ref_type == 'tag'
+    needs: [version, android-build, ios-build, windows-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: microlend-android-apk-${{ needs.version.outputs.version_name }}+${{ needs.version.outputs.build_number }}
+          path: ./artifacts/apk
+
+      - name: Download AAB Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: microlend-android-aab-${{ needs.version.outputs.version_name }}+${{ needs.version.outputs.build_number }}
+          path: ./artifacts/aab
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: microlend-windows-desktop-${{ needs.version.outputs.version_name }}+${{ needs.version.outputs.build_number }}
+          path: ./artifacts/windows
+
+      - name: Zip Windows Build
+        run: |
+          cd artifacts/windows
+          zip -r ../../microlend-windows-${{ needs.version.outputs.version_name }}.zip .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./artifacts/apk/app-release.apk
+            ./artifacts/aab/app-release.aab
+            ./microlend-windows-${{ needs.version.outputs.version_name }}.zip
+          name: MicroLend Release v${{ needs.version.outputs.version_name }}
+          draft: false
+          prerelease: false
