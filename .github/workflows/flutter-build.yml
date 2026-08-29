@@ -44,6 +44,22 @@ on:
         description: 'Version Name override (e.g. 1.2.3). Leave blank to use tag or pubspec default.'
         required: false
         default: ''
+      app_name:
+        description: 'App Name override (e.g. MicroLend Pro)'
+        required: false
+        default: ''
+      app_description:
+        description: 'App Description override'
+        required: false
+        default: ''
+      brand_color:
+        description: 'Brand Theme Color Hex (e.g. #18181B)'
+        required: false
+        default: ''
+      icon_url:
+        description: 'URL to custom 1024x1024 PNG app icon'
+        required: false
+        default: ''
 
 defaults:
   run:
@@ -107,6 +123,27 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Apply Branding Overrides
+        if: ${{ inputs.icon_url != '' || inputs.app_name != '' || inputs.app_description != '' || inputs.brand_color != '' }}
+        run: |
+          if [ -n "${{ inputs.icon_url }}" ]; then
+            curl -sSL "${{ inputs.icon_url }}" -o assets/branding/app_icon.png
+            cp assets/branding/app_icon.png assets/branding/splash_logo.png
+            dart run flutter_launcher_icons
+            dart run flutter_native_splash:create
+          fi
+          if [ -n "${{ inputs.app_name }}" ]; then
+            sed -i "s/android:label=\"[^\"]*\"/android:label=\"${{ inputs.app_name }}\"/g" android/app/src/main/AndroidManifest.xml
+            sed -i "s/<string>.*<\/string><!-- CFBundleDisplayName -->/<string>${{ inputs.app_name }}<\/string>/g" ios/Runner/Info.plist || true
+            sed -i "s/<title>.*<\/title>/<title>${{ inputs.app_name }}<\/title>/g" web/index.html
+            sed -i "s/\"name\": \"[^\"]*\"/\"name\": \"${{ inputs.app_name }}\"/g" web/manifest.json
+            sed -i "s/\"short_name\": \"[^\"]*\"/\"short_name\": \"${{ inputs.app_name }}\"/g" web/manifest.json
+          fi
+          if [ -n "${{ inputs.brand_color }}" ]; then
+            sed -i "s/\"background_color\": \"[^\"]*\"/\"background_color\": \"${{ inputs.brand_color }}\"/g" web/manifest.json
+            sed -i "s/\"theme_color\": \"[^\"]*\"/\"theme_color\": \"${{ inputs.brand_color }}\"/g" web/manifest.json
+          fi
+
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
 
@@ -149,6 +186,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Apply Branding Overrides
+        if: ${{ inputs.icon_url != '' || inputs.app_name != '' || inputs.app_description != '' || inputs.brand_color != '' }}
+        run: |
+          if [ -n "${{ inputs.icon_url }}" ]; then
+            curl -sSL "${{ inputs.icon_url }}" -o assets/branding/app_icon.png
+            cp assets/branding/app_icon.png assets/branding/splash_logo.png
+            dart run flutter_launcher_icons
+            dart run flutter_native_splash:create
+          fi
+          if [ -n "${{ inputs.app_name }}" ]; then
+            sed -i '' "s/<title>.*<\/title>/<title>${{ inputs.app_name }}<\/title>/g" web/index.html || true
+            sed -i '' "s/\"name\": \"[^\"]*\"/\"name\": \"${{ inputs.app_name }}\"/g" web/manifest.json || true
+          fi
+
       - name: Build iOS App (Release, Unsigned)
         run: flutter build ios --release --no-codesign --build-name=${{ needs.version.outputs.version_name }} --build-number=${{ needs.version.outputs.build_number }}
 
@@ -175,6 +226,17 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Apply Branding Overrides
+        if: ${{ inputs.icon_url != '' || inputs.app_name != '' || inputs.app_description != '' || inputs.brand_color != '' }}
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.icon_url }}" ]; then
+            curl -sSL "${{ inputs.icon_url }}" -o assets/branding/app_icon.png
+            cp assets/branding/app_icon.png assets/branding/splash_logo.png
+            dart run flutter_launcher_icons
+            dart run flutter_native_splash:create
+          fi
 
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
