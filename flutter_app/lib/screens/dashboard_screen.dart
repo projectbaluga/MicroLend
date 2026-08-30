@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../store/app_state.dart';
 import '../utils/loan_utils.dart';
@@ -25,6 +26,8 @@ class DashboardScreen extends StatelessWidget {
     final loans = state.loans;
     final borrowers = state.borrowers;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDesktop = ResponsiveContainer.isDesktop(context);
+    final isLargeDesktop = ResponsiveContainer.isLargeDesktop(context);
 
     final borrowerMap = {for (var b in borrowers) b.id: b};
 
@@ -72,7 +75,7 @@ class DashboardScreen extends StatelessWidget {
     for (int i = -1; i < 5; i++) {
       final d = DateTime(now.year, now.month + i, 1);
       final yearMonth = '${d.year}-${d.month.toString().padLeft(2, '0')}';
-      monthLabels.add(LoanUtils.formatDate(yearMonth).split(' ')[0]);
+      monthLabels.add(DateFormat('MMM').format(d));
 
       double exp = 0.0;
       double col = 0.0;
@@ -96,11 +99,46 @@ class DashboardScreen extends StatelessWidget {
       collectedSpots.add(FlSpot((i + 1).toDouble(), col));
     }
 
-    // Donut data
+    // Calculate Y-axis max scale
+    double maxVal = 0.0;
+    for (final spot in [...expectedSpots, ...collectedSpots]) {
+      if (spot.y > maxVal) maxVal = spot.y;
+    }
+
+    double roundedMaxY = 1000.0;
+    if (maxVal > 0) {
+      double step = 250.0;
+      if (maxVal > 5000) {
+        step = 1000.0;
+      } else if (maxVal > 1000) {
+        step = 500.0;
+      }
+      roundedMaxY = (maxVal / step).ceil() * step;
+    }
+
+    // Donut chart status data
     final Map<String, int> statusCounts = {};
     for (var l in loans) {
       statusCounts[l.status] = (statusCounts[l.status] ?? 0) + 1;
     }
+
+    final statusColors = <String, Color>{
+      'active': const Color(0xFF10B981),
+      'pending': const Color(0xFFF59E0B),
+      'completed': const Color(0xFF3B82F6),
+      'defaulted': const Color(0xFFEF4444),
+      'rejected': const Color(0xFF6B7280),
+    };
+
+    final statusSections = statusCounts.entries.map((entry) {
+      return PieChartSectionData(
+        color: statusColors[entry.key] ?? Colors.grey,
+        value: entry.value.toDouble(),
+        title: '${entry.value}',
+        radius: isDesktop ? 32 : 25,
+        titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+      );
+    }).toList();
 
     // Overdue loans
     final overdueLoans = loans.where((loan) {
@@ -110,9 +148,6 @@ class DashboardScreen extends StatelessWidget {
 
     // Recent loans
     final recentLoans = [...loans]..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
-
-    final isDesktop = ResponsiveContainer.isDesktop(context);
-    final isLargeDesktop = ResponsiveContainer.isLargeDesktop(context);
 
     int statGridColumns = 2;
     double statChildAspectRatio = 1.3;
@@ -185,207 +220,314 @@ class DashboardScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '6-Month Expected Cash Flow',
-                        style: TextStyle(
-                          fontSize: isDesktop ? 16 : 14,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    '6-Month Expected Cash Flow',
+                    style: TextStyle(
+                      fontSize: isDesktop ? 16 : 14,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Expected vs Collected payments',
                     style: TextStyle(fontSize: isDesktop ? 12 : 11, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
                   ),
+                  const SizedBox(height: 8),
+                  // Legend for Cash Flow Chart
+                  Row(
+                    children: [
+                      Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.grey, shape: BoxShape.circle)),
+                      const SizedBox(width: 4),
+                      Text('Expected', style: TextStyle(fontSize: isDesktop ? 12 : 11, color: isDark ? Colors.grey.shade300 : Colors.grey.shade700)),
+                      const SizedBox(width: 16),
+                      Container(width: 10, height: 10, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle)),
+                      const SizedBox(width: 4),
+                      Text('Collected', style: TextStyle(fontSize: isDesktop ? 12 : 11, color: isDark ? Colors.grey.shade300 : Colors.grey.shade700)),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   SizedBox(
                     height: isDesktop ? 280 : 160,
                     child: LineChart(
-                    LineChartData(
-                      gridData: const FlGridData(show: false),
-                      titlesData: FlTitlesData(
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            getTitlesWidget: (val, meta) {
-                              final idx = val.toInt();
-                              if (idx >= 0 && idx < monthLabels.length) {
-                                return Text(monthLabels[idx], style: TextStyle(fontSize: isDesktop ? 12 : 10));
-                              }
-                              return const SizedBox.shrink();
-                            },
+                      LineChartData(
+                        minX: 0,
+                        maxX: (monthLabels.length - 1).toDouble(),
+                        minY: 0,
+                        maxY: roundedMaxY,
+                        gridData: const FlGridData(show: false),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: isDesktop ? 45 : 35,
+                              interval: roundedMaxY / 4,
+                              getTitlesWidget: (val, meta) {
+                                if (val < 0 || val > roundedMaxY) return const SizedBox.shrink();
+                                String text = val >= 1000
+                                    ? '${(val / 1000).toStringAsFixed(val % 1000 == 0 ? 0 : 1)}k'
+                                    : val.toInt().toString();
+                                return Text(text, style: TextStyle(fontSize: isDesktop ? 11 : 9, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600));
+                              },
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: 1,
+                              reservedSize: 22,
+                              getTitlesWidget: (val, meta) {
+                                final idx = val.toInt();
+                                if (idx >= 0 && idx < monthLabels.length) {
+                                  return Text(monthLabels[idx], style: TextStyle(fontSize: isDesktop ? 12 : 10, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600));
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
                           ),
                         ),
+                        borderData: FlBorderData(show: false),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: expectedSpots,
+                            isCurved: true,
+                            color: Colors.grey,
+                            barWidth: 2,
+                            belowBarData: BarAreaData(show: true, color: Colors.grey.withValues(alpha: 0.1)),
+                          ),
+                          LineChartBarData(
+                            spots: collectedSpots,
+                            isCurved: true,
+                            color: const Color(0xFF10B981),
+                            barWidth: 2,
+                            belowBarData: BarAreaData(show: true, color: const Color(0xFF10B981).withValues(alpha: 0.2)),
+                          ),
+                        ],
                       ),
-                      borderData: FlBorderData(show: false),
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: expectedSpots,
-                          isCurved: true,
-                          color: Colors.grey,
-                          barWidth: 2,
-                          belowBarData: BarAreaData(show: true, color: Colors.grey.withValues(alpha: 0.1)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Loans by Status Donut Chart Card
+            if (statusCounts.isNotEmpty) ...[
+              CustomCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Loans by Status',
+                      style: TextStyle(
+                        fontSize: isDesktop ? 16 : 14,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: isDesktop ? 130 : 100,
+                          height: isDesktop ? 130 : 100,
+                          child: PieChart(
+                            PieChartData(
+                              sectionsSpace: 2,
+                              centerSpaceRadius: isDesktop ? 30 : 22,
+                              sections: statusSections,
+                            ),
+                          ),
                         ),
-                        LineChartBarData(
-                          spots: collectedSpots,
-                          isCurved: true,
-                          color: const Color(0xFF10B981),
-                          barWidth: 2,
-                          belowBarData: BarAreaData(show: true, color: const Color(0xFF10B981).withValues(alpha: 0.2)),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: Wrap(
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: statusCounts.entries.map((entry) {
+                              final color = statusColors[entry.key] ?? Colors.grey;
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${entry.key.toUpperCase()}: ${entry.value}',
+                                    style: TextStyle(fontSize: isDesktop ? 12 : 11, color: isDark ? Colors.grey.shade300 : Colors.grey.shade700),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+              const SizedBox(height: 20),
+            ],
 
-          const SizedBox(height: 20),
-
-          // Overdue Loans List Card
-          CustomCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+            // Overdue Loans List Card
+            CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
                         children: [
                           const Icon(Icons.warning, color: Colors.redAccent, size: 18),
                           const SizedBox(width: 6),
-                        Text(
-                          'Overdue Repayments',
-                          style: TextStyle(fontSize: isDesktop ? 16 : 14, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                          Text(
+                            'Overdue Repayments',
+                            style: TextStyle(fontSize: isDesktop ? 16 : 14, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      AppBadge(text: '${overdueLoans.length} requiring action', variant: 'high'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (overdueLoans.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      child: Text('No overdue loans!', style: TextStyle(fontSize: isDesktop ? 13 : 12, color: Colors.grey)),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: overdueLoans.length,
+                      separatorBuilder: (_, __) => const Divider(height: 16),
+                      itemBuilder: (context, idx) {
+                        final loan = overdueLoans[idx];
+                        final b = borrowerMap[loan.borrowerId];
+                        final stats = LoanUtils.getLoanStats(loan);
+
+                        return InkWell(
+                          onTap: () => onSelectLoan(loan.id),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  InkWell(
+                                    onTap: () {
+                                      if (loan.borrowerId.isNotEmpty) {
+                                        onSelectBorrower(loan.borrowerId);
+                                      }
+                                    },
+                                    child: Text(
+                                      b?.fullName ?? 'Unknown',
+                                      style: TextStyle(
+                                        fontSize: isDesktop ? 14 : 13,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)}',
+                                    style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '${LoanUtils.formatCurrency(stats.overdueAmount, state.currencyCode)} overdue',
+                                    style: TextStyle(fontSize: isDesktop ? 13 : 12, fontWeight: FontWeight.bold, color: Colors.redAccent),
+                                  ),
+                                  if (stats.nextDue != null)
+                                    Text(
+                                      'Due ${LoanUtils.formatDate(stats.nextDue!.dueDate)}',
+                                      style: TextStyle(fontSize: isDesktop ? 11 : 10, color: Colors.grey),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                    AppBadge(text: '${overdueLoans.length} requiring action', variant: 'high'),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (overdueLoans.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    child: Text('No overdue loans!', style: TextStyle(fontSize: isDesktop ? 13 : 12, color: Colors.grey)),
-                  )
-                else
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Recent Loans List
+            CustomCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Recent Loans & Progress',
+                    style: TextStyle(fontSize: isDesktop ? 16 : 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
                   ListView.separated(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: overdueLoans.length,
+                    itemCount: recentLoans.length > 5 ? 5 : recentLoans.length,
                     separatorBuilder: (_, __) => const Divider(height: 16),
                     itemBuilder: (context, idx) {
-                      final loan = overdueLoans[idx];
+                      final loan = recentLoans[idx];
                       final b = borrowerMap[loan.borrowerId];
                       final stats = LoanUtils.getLoanStats(loan);
 
                       return InkWell(
                         onTap: () => onSelectLoan(loan.id),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  b?.fullName ?? 'Unknown',
-                                  style: TextStyle(fontSize: isDesktop ? 14 : 13, fontWeight: FontWeight.bold),
-                                ),
-                                Text(
-                                  '${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)}',
-                                  style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '${LoanUtils.formatCurrency(stats.overdueAmount, state.currencyCode)} overdue',
-                                  style: TextStyle(fontSize: isDesktop ? 13 : 12, fontWeight: FontWeight.bold, color: Colors.redAccent),
-                                ),
-                                if (stats.nextDue != null)
-                                  Text(
-                                    'Due ${LoanUtils.formatDate(stats.nextDue!.dueDate)}',
-                                    style: TextStyle(fontSize: isDesktop ? 11 : 10, color: Colors.grey),
+                                InkWell(
+                                  onTap: () {
+                                    if (loan.borrowerId.isNotEmpty) {
+                                      onSelectBorrower(loan.borrowerId);
+                                    }
+                                  },
+                                  child: Text(
+                                    '${b?.fullName ?? 'Unknown'} (${LoanUtils.formatCurrency(loan.principal, state.currencyCode)})',
+                                    style: TextStyle(
+                                      fontSize: isDesktop ? 14 : 13,
+                                      fontWeight: FontWeight.bold,
+                                      decoration: TextDecoration.underline,
+                                    ),
                                   ),
+                                ),
+                                AppBadge(text: loan.status, variant: loan.status),
                               ],
                             ),
+                            const SizedBox(height: 6),
+                            if (loan.status == 'active' || loan.status == 'completed')
+                              AppProgressBar(percentage: stats.progressPct)
+                            else
+                              Text(
+                                'Purpose: ${loan.purpose}',
+                                style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
+                              ),
                           ],
                         ),
                       );
                     },
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Recent Loans List
-          CustomCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Recent Loans & Progress',
-                  style: TextStyle(fontSize: isDesktop ? 16 : 14, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: recentLoans.length > 5 ? 5 : recentLoans.length,
-                  separatorBuilder: (_, __) => const Divider(height: 16),
-                  itemBuilder: (context, idx) {
-                    final loan = recentLoans[idx];
-                    final b = borrowerMap[loan.borrowerId];
-                    final stats = LoanUtils.getLoanStats(loan);
-
-                    return InkWell(
-                      onTap: () => onSelectLoan(loan.id),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${b?.fullName ?? 'Unknown'} (${LoanUtils.formatCurrency(loan.principal, state.currencyCode)})',
-                                style: TextStyle(fontSize: isDesktop ? 14 : 13, fontWeight: FontWeight.bold),
-                              ),
-                              AppBadge(text: loan.status, variant: loan.status),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          if (loan.status == 'active' || loan.status == 'completed')
-                            AppProgressBar(percentage: stats.progressPct)
-                          else
-                            Text(
-                              'Purpose: ${loan.purpose}',
-                              style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }

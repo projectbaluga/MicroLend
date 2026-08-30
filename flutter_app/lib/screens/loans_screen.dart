@@ -169,7 +169,7 @@ class _LoansScreenState extends State<LoansScreen> {
                           child: TextField(
                             controller: principalCtrl,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'Principal (\$) *', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: 'Principal (${LoanUtils.currencySymbol(state.currencyCode)}) *', border: const OutlineInputBorder()),
                             onChanged: (_) => setModalState(() {}),
                           ),
                         ),
