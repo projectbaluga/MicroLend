@@ -20,6 +20,12 @@ To download the latest APK or build artifacts, navigate to the **Actions** tab o
 
 ---
 
+## 📚 Documentation & User Guides
+
+- **[Lender's Guide to Issuing a Loan (PDF)](docs/lending-guide.pdf)** — A plain-English walkthrough for non-technical lenders explaining interest calculation methods, upfront deductions, dynamic terms, and late penalties.
+
+---
+
 ## 📱 Flutter Mobile Application (`flutter_app/`)
 
 Reimplemented in Dart/Flutter with local-first on-device storage (`shared_preferences`), `fl_chart` analytics, and full feature parity with the web suite.
