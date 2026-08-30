@@ -7,6 +7,13 @@ import 'package:microlend/utils/loan_utils.dart';
 
 void main() {
   group('LoanUtils Formatting', () {
+    test('currencySymbol returns expected symbol for code', () {
+      expect(LoanUtils.currencySymbol('PHP'), '₱');
+      expect(LoanUtils.currencySymbol('USD'), '\$');
+      expect(LoanUtils.currencySymbol('EUR'), '€');
+      expect(LoanUtils.currencySymbol('GBP'), '£');
+    });
+
     test('formatCurrency returns formatted string with selected currency symbol', () {
       expect(LoanUtils.formatCurrency(1250.5, 'USD'), '\$1,250.50');
       expect(LoanUtils.formatCurrency(1250.5, 'EUR'), '€1,250.50');

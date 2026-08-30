@@ -61,25 +61,24 @@ class LoanUtils {
     return round2(max(0.0, principal - deduction));
   }
 
-  static String formatCurrency(double amount, [String? currencyCode]) {
+  static String currencySymbol([String? currencyCode]) {
     final code = currencyCode ?? defaultCurrencyCode;
-    String symbol = '\$';
     switch (code.toUpperCase()) {
       case 'EUR':
-        symbol = '€';
-        break;
+        return '€';
       case 'PHP':
-        symbol = '₱';
-        break;
+        return '₱';
       case 'GBP':
-        symbol = '£';
-        break;
+        return '£';
       case 'USD':
       default:
-        symbol = '\$';
-        break;
+        return '\$';
     }
+  }
 
+  static String formatCurrency(double amount, [String? currencyCode]) {
+    final code = currencyCode ?? defaultCurrencyCode;
+    final symbol = currencySymbol(code);
     final formatter = NumberFormat.currency(locale: 'en_US', symbol: symbol, decimalDigits: 2);
     return formatter.format(amount);
   }
