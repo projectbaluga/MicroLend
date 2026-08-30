@@ -408,12 +408,12 @@ class SettingsScreen extends StatelessWidget {
             CustomCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('About MicroLend', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text('MicroLend Solo Suite v1.0.0', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 4),
-                  Text(
+                children: [
+                  Text('About ${state.appName}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text('${state.appName} v1.0.0', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text(
                     'Local-first micro-lending management software designed for solo operators. '
                     'Includes automated amortization scheduling, borrower credit risk scoring, payment tracking, and offline data persistence.',
                     style: TextStyle(fontSize: 11, color: Colors.grey),

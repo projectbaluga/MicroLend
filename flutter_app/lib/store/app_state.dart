@@ -16,6 +16,8 @@ class AppState extends ChangeNotifier {
     'rejected': [],
   };
 
+  static const String _envAppName = String.fromEnvironment('APP_NAME', defaultValue: '');
+
   final OfflineStore store;
 
   User? _currentUser;
@@ -37,7 +39,8 @@ class AppState extends ChangeNotifier {
   void _loadSettings() {
     _currencyCode = store.getSetting('currencyCode', 'PHP');
     _dateFormat = store.getSetting('dateFormat', 'MMM d, yyyy');
-    _businessName = store.getSetting('businessName', 'MicroLend Suite');
+    final defaultBusinessName = _envAppName.trim().isNotEmpty ? _envAppName.trim() : 'MicroLend Suite';
+    _businessName = store.getSetting('businessName', defaultBusinessName);
     _defaultTermMonths = int.tryParse(store.getSetting('defaultTermMonths', '6')) ?? 6;
     _defaultInterestRate = double.tryParse(store.getSetting('defaultInterestRate', '12.0')) ?? 12.0;
     _defaultRepaymentFrequency = store.getSetting('defaultRepaymentFrequency', 'monthly');
@@ -86,6 +89,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  String get appName => _envAppName.trim().isNotEmpty ? _envAppName.trim() : _businessName;
   String get currencyCode => _currencyCode;
   String get dateFormat => _dateFormat;
   String get businessName => _businessName;

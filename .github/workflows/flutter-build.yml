@@ -77,8 +77,6 @@ jobs:
       - name: Compute Version Name and Build Number
         id: compute
         run: |
-          BUILD_NUMBER="${{ github.run_number }}"
-
           # 1. Parse base version from pubspec.yaml (part before '+')
           PUBSPEC_VERSION=$(grep '^version:' pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)
 
@@ -88,8 +86,19 @@ jobs:
             VERSION_NAME="${TAG_NAME#v}"
           elif [ -n "${{ inputs.version_name }}" ]; then
             VERSION_NAME="${{ inputs.version_name }}"
-          else
+          elif [ -n "$PUBSPEC_VERSION" ]; then
             VERSION_NAME="$PUBSPEC_VERSION"
+          else
+            echo "Error: Unable to determine version_name."
+            exit 1
+          fi
+
+          # 3. Compute deterministic build_number from x.y.z version_name or fallback
+          if [[ "$VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION_NAME"
+            BUILD_NUMBER=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          else
+            BUILD_NUMBER="${{ github.run_number }}"
           fi
 
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
