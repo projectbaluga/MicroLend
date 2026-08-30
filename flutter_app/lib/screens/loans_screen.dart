@@ -47,7 +47,7 @@ class _LoansScreenState extends State<LoansScreen> {
 
     final principalCtrl = TextEditingController(text: '3000');
     final rateCtrl = TextEditingController(text: state.defaultInterestRate.toString());
-    final termCtrl = TextEditingController(text: state.defaultTermMonths.toString());
+    final termCtrl = TextEditingController(text: state.defaultTermPeriods.toString());
     final purposeCtrl = TextEditingController(text: 'Working Capital');
     final dateCtrl = TextEditingController(text: DateTime.now().toIso8601String().split('T')[0]);
     final notesCtrl = TextEditingController();

@@ -24,7 +24,7 @@ class AppState extends ChangeNotifier {
   late String _currencyCode;
   late String _dateFormat;
   late String _businessName;
-  late int _defaultTermMonths;
+  late int _defaultTermPeriods;
   late double _defaultInterestRate;
   late String _defaultRepaymentFrequency;
   late String _defaultInterestMethod;
@@ -41,7 +41,8 @@ class AppState extends ChangeNotifier {
     _dateFormat = store.getSetting('dateFormat', 'MMM d, yyyy');
     final defaultBusinessName = _envAppName.trim().isNotEmpty ? _envAppName.trim() : 'MicroLend Suite';
     _businessName = store.getSetting('businessName', defaultBusinessName);
-    _defaultTermMonths = int.tryParse(store.getSetting('defaultTermMonths', '6')) ?? 6;
+    final termStr = store.getSetting('defaultTermPeriods', store.getSetting('defaultTermMonths', '6'));
+    _defaultTermPeriods = int.tryParse(termStr) ?? 6;
     _defaultInterestRate = double.tryParse(store.getSetting('defaultInterestRate', '12.0')) ?? 12.0;
     _defaultRepaymentFrequency = store.getSetting('defaultRepaymentFrequency', 'monthly');
     _defaultInterestMethod = store.getSetting('defaultInterestMethod', 'reducing');
@@ -93,7 +94,7 @@ class AppState extends ChangeNotifier {
   String get currencyCode => _currencyCode;
   String get dateFormat => _dateFormat;
   String get businessName => _businessName;
-  int get defaultTermMonths => _defaultTermMonths;
+  int get defaultTermPeriods => _defaultTermPeriods;
   double get defaultInterestRate => _defaultInterestRate;
   String get defaultRepaymentFrequency => _defaultRepaymentFrequency;
   String get defaultInterestMethod => _defaultInterestMethod;
@@ -122,9 +123,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setDefaultTermMonths(int months) async {
-    _defaultTermMonths = months;
-    await store.setSetting('defaultTermMonths', months.toString());
+  Future<void> setDefaultTermPeriods(int periods) async {
+    _defaultTermPeriods = periods;
+    await store.setSetting('defaultTermPeriods', periods.toString());
     notifyListeners();
   }
 
