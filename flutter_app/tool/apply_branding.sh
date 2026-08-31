@@ -55,11 +55,16 @@ with open(path, 'w') as f:
     fi
   fi
 
-  # Windows Runner.rc & main.cpp
+  # Windows Runner.rc & main.cpp & CMakeLists.txt
+  SAFE_APP_NAME=$(echo "${APP_NAME}" | sed -E 's/[^a-zA-Z0-9_-]+//g')
+  if [ -z "${SAFE_APP_NAME}" ]; then
+    SAFE_APP_NAME="MicroLend"
+  fi
+
   if [ -f "windows/runner/Runner.rc" ]; then
     sed -i -E "s/VALUE \"FileDescription\", \"[^\"]*\"/VALUE \"FileDescription\", \"${APP_NAME}\"/g" windows/runner/Runner.rc
     sed -i -E "s/VALUE \"InternalName\", \"[^\"]*\"/VALUE \"InternalName\", \"${APP_NAME}\"/g" windows/runner/Runner.rc
-    sed -i -E "s/VALUE \"OriginalFilename\", \"[^\"]*\"/VALUE \"OriginalFilename\", \"${APP_NAME}.exe\"/g" windows/runner/Runner.rc
+    sed -i -E "s/VALUE \"OriginalFilename\", \"[^\"]*\"/VALUE \"OriginalFilename\", \"${SAFE_APP_NAME}.exe\"/g" windows/runner/Runner.rc
     sed -i -E "s/VALUE \"ProductName\", \"[^\"]*\"/VALUE \"ProductName\", \"${APP_NAME}\"/g" windows/runner/Runner.rc
   fi
 
@@ -73,6 +78,11 @@ content = re.sub(r'window\.Create\(L\"[^\"]*\"', 'window.Create(L\"' + sys.argv[
 with open(path, 'w') as f:
     f.write(content)
 " "${APP_NAME}"
+  fi
+
+  if [ -f "windows/CMakeLists.txt" ]; then
+    echo "Updating Windows BINARY_NAME to: ${SAFE_APP_NAME}"
+    sed -i -E "s/set\(BINARY_NAME \"[^\"]*\"\)/set(BINARY_NAME \"${SAFE_APP_NAME}\")/" windows/CMakeLists.txt
   fi
 
   # Web
@@ -132,6 +142,11 @@ fi
 if [ -f "windows/runner/main.cpp" ]; then
   echo "Windows main.cpp Window Title:"
   grep "window.Create" windows/runner/main.cpp || true
+fi
+
+if [ -f "windows/CMakeLists.txt" ]; then
+  echo "Windows BINARY_NAME:"
+  grep "set(BINARY_NAME" windows/CMakeLists.txt || true
 fi
 
 if [ -f "web/index.html" ]; then
