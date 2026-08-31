@@ -6,6 +6,7 @@ set -euo pipefail
 # - ICON_URL: (optional) URL to custom PNG app icon
 # - APP_NAME: (optional) Custom application name
 # - APP_DESCRIPTION: (optional) Custom app description
+# NOTE: In-app Dart UI strings are driven dynamically via '--dart-define=APP_NAME=...' passed during build.
 # - BRAND_COLOR: (optional) Hex theme/background color (e.g. #18181B)
 
 echo "=== Applying Branding Overrides ==="

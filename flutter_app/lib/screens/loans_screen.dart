@@ -45,10 +45,10 @@ class _LoansScreenState extends State<LoansScreen> {
     String selectedMethod = state.defaultInterestMethod;
     String selectedPenaltyType = state.defaultPenaltyType;
 
-    final principalCtrl = TextEditingController(text: '3000');
+    final principalCtrl = TextEditingController();
     final rateCtrl = TextEditingController(text: state.defaultInterestRate.toString());
-    final termCtrl = TextEditingController(text: state.defaultTermMonths.toString());
-    final purposeCtrl = TextEditingController(text: 'Working Capital');
+    final termCtrl = TextEditingController(text: state.defaultTermPeriods.toString());
+    final purposeCtrl = TextEditingController();
     final dateCtrl = TextEditingController(text: DateTime.now().toIso8601String().split('T')[0]);
     final notesCtrl = TextEditingController();
     final penaltyValueCtrl = TextEditingController(text: state.defaultPenaltyValue.toString());
@@ -116,6 +116,10 @@ class _LoansScreenState extends State<LoansScreen> {
                   children: [
                     const Text('Issue New Loan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
+
+                    // Section 1: Borrower & Amount
+                    const Text('1. Borrower & Amount', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       initialValue: selectedBorrowerId,
                       decoration: const InputDecoration(labelText: 'Borrower *', border: OutlineInputBorder()),
@@ -130,46 +134,14 @@ class _LoansScreenState extends State<LoansScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: selectedFrequency,
-                            decoration: const InputDecoration(labelText: 'Frequency', border: OutlineInputBorder()),
-                            items: const [
-                              DropdownMenuItem(value: 'daily', child: Text('Daily')),
-                              DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
-                              DropdownMenuItem(value: 'biweekly', child: Text('Bi-weekly')),
-                              DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) setModalState(() => selectedFrequency = val);
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: selectedMethod,
-                            decoration: const InputDecoration(labelText: 'Interest Method', border: OutlineInputBorder()),
-                            items: const [
-                              DropdownMenuItem(value: 'reducing', child: Text('Reducing Balance')),
-                              DropdownMenuItem(value: 'flat', child: Text('Flat / Add-on ("5-6")')),
-                              DropdownMenuItem(value: 'interest_only', child: Text('Interest-Only')),
-                              DropdownMenuItem(value: 'one_time', child: Text('One-Time Payment')),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) setModalState(() => selectedMethod = val);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
                           child: TextField(
                             controller: principalCtrl,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(labelText: 'Principal (${LoanUtils.currencySymbol(state.currencyCode)}) *', border: const OutlineInputBorder()),
+                            decoration: InputDecoration(
+                              labelText: 'Principal (${LoanUtils.currencySymbol(state.currencyCode)}) *',
+                              hintText: 'e.g. 3000',
+                              border: const OutlineInputBorder(),
+                            ),
                             onChanged: (_) => setModalState(() {}),
                           ),
                         ),
@@ -182,7 +154,16 @@ class _LoansScreenState extends State<LoansScreen> {
                             onChanged: (_) => setModalState(() {}),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Section 2: Loan Terms & Purpose
+                    const Text('2. Loan Terms & Purpose', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
                         Expanded(
                           child: TextField(
                             controller: termCtrl,
@@ -191,101 +172,36 @@ class _LoansScreenState extends State<LoansScreen> {
                             onChanged: (_) => setModalState(() {}),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
+                        const SizedBox(width: 8),
                         Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: deductionType,
-                            decoration: const InputDecoration(labelText: 'Upfront Deduction', border: OutlineInputBorder()),
-                            items: const [
-                              DropdownMenuItem(value: 'none', child: Text('None')),
-                              DropdownMenuItem(value: 'fixed', child: Text('Fixed Amount')),
-                              DropdownMenuItem(value: 'percent', child: Text('Percentage (%)')),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) {
-                                setModalState(() {
-                                  deductionType = val;
-                                });
-                              }
-                            },
+                          child: TextField(
+                            controller: purposeCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Purpose *',
+                              hintText: 'e.g. Working Capital',
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (_) => setModalState(() {}),
                           ),
                         ),
-                        if (deductionType != 'none') ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: deductionValueCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: InputDecoration(
-                                labelText: deductionType == 'fixed' ? 'Deduction Amount' : 'Deduction Percentage (%)',
-                                border: const OutlineInputBorder(),
-                              ),
-                              onChanged: (_) => setModalState(() {}),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: selectedPenaltyType,
-                            decoration: const InputDecoration(labelText: 'Penalty / Multa Type', border: OutlineInputBorder()),
-                            items: const [
-                              DropdownMenuItem(value: 'none', child: Text('None')),
-                              DropdownMenuItem(value: 'fixed_per_period', child: Text('Fixed per overdue period')),
-                              DropdownMenuItem(value: 'percent_per_period', child: Text('Percent (%) per overdue period')),
-                              DropdownMenuItem(value: 'fixed_once', child: Text('Fixed once when overdue')),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) setModalState(() => selectedPenaltyType = val);
-                            },
-                          ),
-                        ),
-                        if (selectedPenaltyType != 'none') ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: penaltyValueCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: InputDecoration(
-                                labelText: selectedPenaltyType == 'percent_per_period' ? 'Penalty Rate (%)' : 'Penalty Amount',
-                                border: const OutlineInputBorder(),
-                              ),
-                              onChanged: (_) => setModalState(() {}),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: purposeCtrl,
-                      decoration: const InputDecoration(labelText: 'Purpose *', border: OutlineInputBorder()),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: dateCtrl,
-                      decoration: const InputDecoration(labelText: 'Disbursement Date', border: OutlineInputBorder()),
-                      onChanged: (_) => setModalState(() {}),
-                    ),
-                    const SizedBox(height: 10),
+
+                    const SizedBox(height: 12),
+
                     if (validationError != null) ...[
                       Text(validationError!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
                       const SizedBox(height: 8),
                     ],
+
+                    // Prominent Live Preview Box
                     if (p > 0) ...[
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.grey.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          color: Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,25 +211,181 @@ class _LoansScreenState extends State<LoansScreen> {
                                   style: const TextStyle(fontSize: 11, color: Colors.redAccent)),
                               const SizedBox(height: 2),
                               Text('Net Disbursed to Borrower: ${LoanUtils.formatCurrency(netDisbursed, state.currencyCode)}',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
-                              const SizedBox(height: 4),
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                              const SizedBox(height: 6),
                             ],
                             if (schedPreview.isNotEmpty) ...[
                               Text('Installments: ${schedPreview.length} period(s) @ ${LoanUtils.formatCurrency(schedPreview[0].amount, state.currencyCode)} / period',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 2),
-                              Text('Total Interest: ${LoanUtils.formatCurrency(totalInterest, state.currencyCode)} • Total Repayable: ${LoanUtils.formatCurrency(totalScheduled, state.currencyCode)}',
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Total Interest: ${LoanUtils.formatCurrency(totalInterest, state.currencyCode)}',
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  Text('Total Repayable: ${LoanUtils.formatCurrency(totalScheduled, state.currencyCode)}',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                                ],
+                              ),
                             ],
                           ],
                         ),
                       ),
                       const SizedBox(height: 10),
                     ],
-                    TextField(
-                      controller: notesCtrl,
-                      decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
+
+                    // Advanced Options Collapsible ExpansionTile
+                    Theme(
+                      data: Theme.of(ctx).copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        title: const Text('Advanced options', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: const EdgeInsets.only(top: 4, bottom: 8),
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: selectedFrequency,
+                                  decoration: const InputDecoration(labelText: 'Frequency', border: OutlineInputBorder()),
+                                  items: const [
+                                    DropdownMenuItem(value: 'daily', child: Text('Daily')),
+                                    DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                                    DropdownMenuItem(value: 'biweekly', child: Text('Bi-weekly')),
+                                    DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setModalState(() => selectedFrequency = val);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: selectedMethod,
+                                  decoration: const InputDecoration(labelText: 'Interest Method', border: OutlineInputBorder()),
+                                  items: const [
+                                    DropdownMenuItem(value: 'reducing', child: Text('Reducing Balance')),
+                                    DropdownMenuItem(value: 'flat', child: Text('Flat / Add-on ("5-6")')),
+                                    DropdownMenuItem(value: 'interest_only', child: Text('Interest-Only')),
+                                    DropdownMenuItem(value: 'one_time', child: Text('One-Time Payment')),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setModalState(() => selectedMethod = val);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: deductionType,
+                                  decoration: const InputDecoration(labelText: 'Upfront Deduction', border: OutlineInputBorder()),
+                                  items: const [
+                                    DropdownMenuItem(value: 'none', child: Text('None')),
+                                    DropdownMenuItem(value: 'fixed', child: Text('Fixed Amount')),
+                                    DropdownMenuItem(value: 'percent', child: Text('Percentage (%)')),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setModalState(() {
+                                        deductionType = val;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              if (deductionType != 'none') ...[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: deductionValueCtrl,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: InputDecoration(
+                                      labelText: deductionType == 'fixed' ? 'Deduction Amount' : 'Deduction Percentage (%)',
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                    onChanged: (_) => setModalState(() {}),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: selectedPenaltyType,
+                                  decoration: const InputDecoration(labelText: 'Penalty / Multa Type', border: OutlineInputBorder()),
+                                  items: const [
+                                    DropdownMenuItem(value: 'none', child: Text('None')),
+                                    DropdownMenuItem(value: 'fixed_per_period', child: Text('Fixed per overdue period')),
+                                    DropdownMenuItem(value: 'percent_per_period', child: Text('Percent (%) per overdue period')),
+                                    DropdownMenuItem(value: 'fixed_once', child: Text('Fixed once when overdue')),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) setModalState(() => selectedPenaltyType = val);
+                                  },
+                                ),
+                              ),
+                              if (selectedPenaltyType != 'none') ...[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: penaltyValueCtrl,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: InputDecoration(
+                                      labelText: selectedPenaltyType == 'percent_per_period' ? 'Penalty Rate (%)' : 'Penalty Amount',
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                    onChanged: (_) => setModalState(() {}),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: dateCtrl,
+                            readOnly: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Disbursement Date',
+                              suffixIcon: Icon(Icons.calendar_today, size: 18),
+                              border: OutlineInputBorder(),
+                            ),
+                            onTap: () async {
+                              DateTime initial;
+                              try {
+                                initial = DateTime.parse(dateCtrl.text.trim());
+                              } catch (_) {
+                                initial = DateTime.now();
+                              }
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: initial,
+                                firstDate: DateTime(2000),
+                                lastDate: DateTime(2100),
+                              );
+                              if (picked != null) {
+                                setModalState(() {
+                                  dateCtrl.text = picked.toIso8601String().split('T')[0];
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: notesCtrl,
+                            decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
+                          ),
+                        ],
+                      ),
                     ),
+
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -323,6 +395,8 @@ class _LoansScreenState extends State<LoansScreen> {
                         ElevatedButton(
                           onPressed: () {
                             final penVal = double.tryParse(penaltyValueCtrl.text.trim()) ?? 0.0;
+                            final purpose = purposeCtrl.text.trim().isEmpty ? 'Working Capital' : purposeCtrl.text.trim();
+
                             final err = LoanUtils.validateLoanParams(
                               principal: p,
                               interestRate: r,
@@ -358,7 +432,7 @@ class _LoansScreenState extends State<LoansScreen> {
                               repaymentFrequency: selectedFrequency,
                               interestMethod: selectedMethod,
                               termCount: t,
-                              purpose: purposeCtrl.text.trim(),
+                              purpose: purpose,
                               status: 'pending',
                               disbursementDate: dateCtrl.text.trim(),
                               upfrontDeductionType: deductionType,
@@ -493,32 +567,32 @@ class _LoansScreenState extends State<LoansScreen> {
                                             backgroundColor: const Color(0xFF059669),
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           ),
-                                      onPressed: () async {
-                                        if (loan.creditAssessment?.riskRating == 'high') {
-                                          final confirm = await showDialog<bool>(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              title: const Text('High Risk Loan Warning'),
-                                              content: Text(
-                                                'Borrower "${b?.fullName ?? ''}" is rated HIGH RISK (DTI ${loan.creditAssessment?.dtiPct ?? 0}%).\n\nAre you sure you want to approve this loan with explicit override?',
-                                              ),
-                                              actions: [
-                                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                                ElevatedButton(
-                                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
-                                                  onPressed: () => Navigator.pop(ctx, true),
-                                                  child: const Text('Approve Override', style: TextStyle(color: Colors.white)),
+                                          onPressed: () async {
+                                            if (loan.creditAssessment?.riskRating == 'high') {
+                                              final confirm = await showDialog<bool>(
+                                                context: context,
+                                                builder: (ctx) => AlertDialog(
+                                                  title: const Text('High Risk Loan Warning'),
+                                                  content: Text(
+                                                    'Borrower "${b?.fullName ?? ''}" is rated HIGH RISK (DTI ${loan.creditAssessment?.dtiPct ?? 0}%).\n\nAre you sure you want to approve this loan with explicit override?',
+                                                  ),
+                                                  actions: [
+                                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                                    ElevatedButton(
+                                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+                                                      onPressed: () => Navigator.pop(ctx, true),
+                                                      child: const Text('Approve Override', style: TextStyle(color: Colors.white)),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ],
-                                            ),
-                                          );
-                                          if (confirm == true) {
-                                            state.approveLoan(loan.id, overrideHighRisk: true);
-                                          }
-                                        } else {
-                                          state.approveLoan(loan.id);
-                                        }
-                                      },
+                                              );
+                                              if (confirm == true) {
+                                                state.approveLoan(loan.id, overrideHighRisk: true);
+                                              }
+                                            } else {
+                                              state.approveLoan(loan.id);
+                                            }
+                                          },
                                           icon: const Icon(Icons.check, size: 14, color: Colors.white),
                                           label: const Text('Approve', style: TextStyle(fontSize: 11, color: Colors.white)),
                                         )

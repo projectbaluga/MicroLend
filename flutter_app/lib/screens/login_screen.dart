@@ -43,6 +43,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = Provider.of<AppState>(context);
+
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -60,10 +62,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     const Icon(Icons.account_balance, size: 48, color: Color(0xFF059669)),
                     const SizedBox(height: 12),
-                    const Text(
-                      'MicroLend Suite',
+                    Text(
+                      state.appName,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     const Text(

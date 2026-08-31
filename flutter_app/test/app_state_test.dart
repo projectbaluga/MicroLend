@@ -272,6 +272,20 @@ void main() {
       expect(content.contains("_quickFill"), isFalse);
     });
 
+    test('AppState appName returns active app branding name', () {
+      expect(appState.appName, equals(appState.businessName));
+    });
+
+    test('defaultTermPeriods reads setting and supports legacy defaultTermMonths key fallback', () async {
+      await store.setSetting('defaultTermMonths', '12');
+      final legacyState = AppState(store);
+      expect(legacyState.defaultTermPeriods, 12);
+
+      await legacyState.setDefaultTermPeriods(24);
+      expect(legacyState.defaultTermPeriods, 24);
+      expect(store.getSetting('defaultTermPeriods', ''), '24');
+    });
+
     test('high risk loan blocks approval unless overrideHighRisk is true', () async {
       await appState.createUser('officer_hr', 'officer123', 'officer');
       await appState.login('officer_hr', 'officer123');
