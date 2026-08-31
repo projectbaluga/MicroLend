@@ -240,43 +240,70 @@ class _BorrowersScreenState extends State<BorrowersScreen> {
             Expanded(
               child: filtered.isEmpty
                   ? Center(child: Text('No borrowers found.', style: TextStyle(fontSize: isDesktop ? 14 : 12)))
-                  : ListView.separated(
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, idx) {
-                        final b = filtered[idx];
-                        final bLoans = loans.where((l) => l.borrowerId == b.id).toList();
-                        final assessment = LoanUtils.assessBorrower(b, bLoans);
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        Widget buildBorrowerCard(Borrower b) {
+                          final bLoans = loans.where((l) => l.borrowerId == b.id).toList();
+                          final assessment = LoanUtils.assessBorrower(b, bLoans);
 
-                        return CustomCard(
-                          onTap: () => widget.onSelectBorrower(b.id),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(b.fullName, style: TextStyle(fontSize: isDesktop ? 15 : 14, fontWeight: FontWeight.bold)),
-                                  AppBadge(text: assessment.riskRating, variant: assessment.riskRating),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${b.email.isNotEmpty ? b.email : b.phone} • Income: ${LoanUtils.formatCurrency(b.monthlyIncome)}',
-                                style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Credit Score: ${assessment.creditScore}/100',
-                                      style: TextStyle(fontSize: isDesktop ? 12 : 11, fontWeight: FontWeight.bold)),
-                                  Text('${bLoans.length} loan(s)',
-                                      style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey)),
-                                ],
-                              ),
-                            ],
-                          ),
+                          return CustomCard(
+                            onTap: () => widget.onSelectBorrower(b.id),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        b.fullName,
+                                        style: TextStyle(fontSize: isDesktop ? 15 : 14, fontWeight: FontWeight.bold),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    AppBadge(text: assessment.riskRating, variant: assessment.riskRating),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${b.email.isNotEmpty ? b.email : b.phone} • Income: ${LoanUtils.formatCurrency(b.monthlyIncome)}',
+                                  style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Credit Score: ${assessment.creditScore}/100',
+                                        style: TextStyle(fontSize: isDesktop ? 12 : 11, fontWeight: FontWeight.bold)),
+                                    Text('${bLoans.length} loan(s)',
+                                        style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        if (isDesktop) {
+                          return GridView.builder(
+                            itemCount: filtered.length,
+                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 450,
+                              mainAxisExtent: 110,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                            ),
+                            itemBuilder: (context, idx) => buildBorrowerCard(filtered[idx]),
+                          );
+                        }
+
+                        return ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          itemBuilder: (context, idx) => buildBorrowerCard(filtered[idx]),
                         );
                       },
                     ),
