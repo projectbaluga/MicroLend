@@ -534,87 +534,116 @@ class _LoansScreenState extends State<LoansScreen> {
             Expanded(
               child: filtered.isEmpty
                   ? Center(child: Text('No loans found.', style: TextStyle(fontSize: isDesktop ? 14 : 12)))
-                  : ListView.separated(
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, idx) {
-                        final loan = filtered[idx];
-                        final b = borrowerMap[loan.borrowerId];
-                        final stats = LoanUtils.getLoanStats(loan);
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        Widget buildLoanCard(Loan loan) {
+                          final b = borrowerMap[loan.borrowerId];
+                          final stats = LoanUtils.getLoanStats(loan);
 
-                        return CustomCard(
-                          onTap: () => widget.onSelectLoan(loan.id),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(b?.fullName ?? 'Unknown', style: TextStyle(fontSize: isDesktop ? 15 : 14, fontWeight: FontWeight.bold)),
-                                  AppBadge(text: loan.status, variant: loan.status),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text('${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)} @ ${loan.interestRate}%',
-                                  style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey)),
-                              const SizedBox(height: 8),
-                              if (loan.status == 'pending')
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: (state.currentUser?.role == 'approver' && loan.createdBy != state.currentUser?.id)
-                                      ? ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFF059669),
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                          ),
-                                          onPressed: () async {
-                                            if (loan.creditAssessment?.riskRating == 'high') {
-                                              final confirm = await showDialog<bool>(
-                                                context: context,
-                                                builder: (ctx) => AlertDialog(
-                                                  title: const Text('High Risk Loan Warning'),
-                                                  content: Text(
-                                                    'Borrower "${b?.fullName ?? ''}" is rated HIGH RISK (DTI ${loan.creditAssessment?.dtiPct ?? 0}%).\n\nAre you sure you want to approve this loan with explicit override?',
-                                                  ),
-                                                  actions: [
-                                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                                    ElevatedButton(
-                                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
-                                                      onPressed: () => Navigator.pop(ctx, true),
-                                                      child: const Text('Approve Override', style: TextStyle(color: Colors.white)),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                              if (confirm == true) {
-                                                state.approveLoan(loan.id, overrideHighRisk: true);
-                                              }
-                                            } else {
-                                              state.approveLoan(loan.id);
-                                            }
-                                          },
-                                          icon: const Icon(Icons.check, size: 14, color: Colors.white),
-                                          label: const Text('Approve', style: TextStyle(fontSize: 11, color: Colors.white)),
-                                        )
-                                      : Text(
-                                          loan.createdBy == state.currentUser?.id
-                                              ? 'Awaiting Approval (Creator)'
-                                              : 'Awaiting Approver',
-                                          style: const TextStyle(fontSize: 11, color: Colors.orangeAccent),
-                                        ),
-                                )
-                              else
+                          return CustomCard(
+                            onTap: () => widget.onSelectLoan(loan.id),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text('Balance: ${LoanUtils.formatCurrency(stats.outstandingBalance, state.currencyCode)}',
-                                        style: TextStyle(fontSize: isDesktop ? 12 : 11, fontWeight: FontWeight.bold)),
-                                    Text('${stats.progressPct}% Paid',
-                                        style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey)),
+                                    Expanded(
+                                      child: Text(
+                                        b?.fullName ?? 'Unknown',
+                                        style: TextStyle(fontSize: isDesktop ? 15 : 14, fontWeight: FontWeight.bold),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    AppBadge(text: loan.status, variant: loan.status),
                                   ],
                                 ),
-                            ],
-                          ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${loan.purpose} • ${LoanUtils.formatCurrency(loan.principal, state.currencyCode)} @ ${loan.interestRate}%',
+                                  style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                if (loan.status == 'pending')
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: (state.currentUser?.role == 'approver' && loan.createdBy != state.currentUser?.id)
+                                        ? ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF059669),
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            ),
+                                            onPressed: () async {
+                                              if (loan.creditAssessment?.riskRating == 'high') {
+                                                final confirm = await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (ctx) => AlertDialog(
+                                                    title: const Text('High Risk Loan Warning'),
+                                                    content: Text(
+                                                      'Borrower "${b?.fullName ?? ''}" is rated HIGH RISK (DTI ${loan.creditAssessment?.dtiPct ?? 0}%).\n\nAre you sure you want to approve this loan with explicit override?',
+                                                    ),
+                                                    actions: [
+                                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                                      ElevatedButton(
+                                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+                                                        onPressed: () => Navigator.pop(ctx, true),
+                                                        child: const Text('Approve Override', style: TextStyle(color: Colors.white)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                                if (confirm == true) {
+                                                  state.approveLoan(loan.id, overrideHighRisk: true);
+                                                }
+                                              } else {
+                                                state.approveLoan(loan.id);
+                                              }
+                                            },
+                                            icon: const Icon(Icons.check, size: 14, color: Colors.white),
+                                            label: const Text('Approve', style: TextStyle(fontSize: 11, color: Colors.white)),
+                                          )
+                                        : Text(
+                                            loan.createdBy == state.currentUser?.id
+                                                ? 'Awaiting Approval (Creator)'
+                                                : 'Awaiting Approver',
+                                            style: const TextStyle(fontSize: 11, color: Colors.orangeAccent),
+                                          ),
+                                  )
+                                else
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Balance: ${LoanUtils.formatCurrency(stats.outstandingBalance, state.currencyCode)}',
+                                          style: TextStyle(fontSize: isDesktop ? 12 : 11, fontWeight: FontWeight.bold)),
+                                      Text('${stats.progressPct}% Paid',
+                                          style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey)),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        if (isDesktop) {
+                          return GridView.builder(
+                            itemCount: filtered.length,
+                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 450,
+                              mainAxisExtent: 130,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                            ),
+                            itemBuilder: (context, idx) => buildLoanCard(filtered[idx]),
+                          );
+                        }
+
+                        return ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          itemBuilder: (context, idx) => buildLoanCard(filtered[idx]),
                         );
                       },
                     ),
