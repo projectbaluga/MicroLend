@@ -17,6 +17,7 @@ class AppState extends ChangeNotifier {
   };
 
   static const String _envAppName = String.fromEnvironment('APP_NAME', defaultValue: '');
+  static const String _envAppDescription = String.fromEnvironment('APP_DESCRIPTION', defaultValue: '');
 
   final OfflineStore store;
 
@@ -91,6 +92,13 @@ class AppState extends ChangeNotifier {
   }
 
   String get appName => _envAppName.trim().isNotEmpty ? _envAppName.trim() : _businessName;
+  String get appDescription {
+    if (_envAppDescription.trim().isNotEmpty) {
+      return _envAppDescription.trim();
+    }
+    return 'Local-first micro-lending management software designed for solo operators. '
+        'Includes automated amortization scheduling, borrower credit risk scoring, payment tracking, and offline data persistence.';
+  }
   String get currencyCode => _currencyCode;
   String get dateFormat => _dateFormat;
   String get businessName => _businessName;

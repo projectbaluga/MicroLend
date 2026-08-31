@@ -404,12 +404,17 @@ class SettingsScreen extends StatelessWidget {
                       children: [
                         Text('About ${state.appName}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
-                        Text('${state.appName} v$ver+$build', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        Row(
+                          children: [
+                            Text('${state.appName} v$ver', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 8),
+                            Text('Build $build', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          ],
+                        ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Local-first micro-lending management software designed for solo operators. '
-                          'Includes automated amortization scheduling, borrower credit risk scoring, payment tracking, and offline data persistence.',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        Text(
+                          state.appDescription,
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
                         ),
                       ],
                     );
