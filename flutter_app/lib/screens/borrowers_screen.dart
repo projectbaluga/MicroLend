@@ -139,7 +139,7 @@ class _BorrowersScreenState extends State<BorrowersScreen> {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (nameCtrl.text.trim().isEmpty) return;
                         final newBorrower = Borrower(
                           id: 'bor_${DateTime.now().millisecondsSinceEpoch}',
@@ -156,14 +156,22 @@ class _BorrowersScreenState extends State<BorrowersScreen> {
                           createdAt: DateTime.now().toIso8601String().split('T')[0],
                         );
 
-                        Provider.of<AppState>(context, listen: false).addBorrower(newBorrower);
-                        Navigator.pop(ctx);
+                        try {
+                          await Provider.of<AppState>(context, listen: false).addBorrower(newBorrower);
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx);
 
-                        if (!context.mounted) return;
-                        HapticFeedback.lightImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Borrower added successfully')),
-                        );
+                          if (!context.mounted) return;
+                          HapticFeedback.lightImpact();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Borrower added successfully')),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to add borrower: ${e.toString().replaceAll('StateError: ', '')}')),
+                          );
+                        }
                       },
                       child: const Text('Save Borrower'),
                     ),

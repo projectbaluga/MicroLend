@@ -38,6 +38,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> reload() async {
+    try {
+      await store.reload();
+    } catch (_) {}
     _loadSettings();
     notifyListeners();
   }

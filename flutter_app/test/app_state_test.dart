@@ -307,6 +307,33 @@ void main() {
       expect(appState.appName, equals(appState.businessName));
     });
 
+    test('reload re-hydrates preferences and notifies listeners', () async {
+      bool notified = false;
+      appState.addListener(() => notified = true);
+
+      await store.saveCollection('borrowers', [
+        {
+          'id': 'b_reload_test',
+          'fullName': 'Reload Borrower',
+          'email': 'reload@example.com',
+          'phone': '1234567890',
+          'address': 'Reload St',
+          'idNumber': 'ID-RELOAD',
+          'employment': 'Self',
+          'monthlyIncome': 5000.0,
+          'creditScore': 75,
+          'riskRating': 'low',
+          'notes': '',
+          'createdAt': '2026-01-01',
+        }
+      ]);
+
+      await appState.reload();
+
+      expect(notified, isTrue);
+      expect(appState.borrowers.any((b) => b.id == 'b_reload_test'), isTrue);
+    });
+
     test('defaultTermPeriods reads setting and supports legacy defaultTermMonths key fallback', () async {
       await store.setSetting('defaultTermMonths', '12');
       final legacyState = AppState(store);

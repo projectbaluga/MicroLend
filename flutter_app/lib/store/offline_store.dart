@@ -36,6 +36,12 @@ class OfflineStore {
     return store;
   }
 
+  Future<void> reload() async {
+    try {
+      await _prefs.reload();
+    } catch (_) {}
+  }
+
   String getSetting(String key, String defaultValue) {
     return _prefs.getString('$_settingPrefix$key') ?? defaultValue;
   }
