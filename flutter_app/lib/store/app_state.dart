@@ -37,6 +37,11 @@ class AppState extends ChangeNotifier {
     _loadSettings();
   }
 
+  Future<void> reload() async {
+    _loadSettings();
+    notifyListeners();
+  }
+
   void _loadSettings() {
     _currencyCode = store.getSetting('currencyCode', 'PHP');
     _dateFormat = store.getSetting('dateFormat', 'MMM d, yyyy');

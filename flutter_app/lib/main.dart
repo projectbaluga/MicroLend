@@ -306,6 +306,7 @@ class _MainShellState extends State<MainShell> {
     Widget content;
     if (_selectedLoanId != null) {
       content = LoanDetailScreen(
+        key: ValueKey('loan_$_selectedLoanId'),
         loanId: _selectedLoanId!,
         onBack: () => setState(() => _selectedLoanId = null),
         onSelectBorrower: (id) {
@@ -317,6 +318,7 @@ class _MainShellState extends State<MainShell> {
       );
     } else if (_selectedBorrowerId != null) {
       content = BorrowerDetailScreen(
+        key: ValueKey('borrower_$_selectedBorrowerId'),
         borrowerId: _selectedBorrowerId!,
         onBack: () => setState(() => _selectedBorrowerId = null),
         onSelectLoan: (id) => setState(() => _selectedLoanId = id),
@@ -329,8 +331,29 @@ class _MainShellState extends State<MainShell> {
         },
       );
     } else {
-      content = activeDest.builder(this);
+      content = KeyedSubtree(
+        key: ValueKey('tab_${activeDest.key}'),
+        child: activeDest.builder(this),
+      );
     }
+
+    final animatedContent = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        final offsetAnimation = Tween<Offset>(
+          begin: const Offset(0.02, 0.0),
+          end: Offset.zero,
+        ).animate(animation);
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: offsetAnimation,
+            child: child,
+          ),
+        );
+      },
+      child: content,
+    );
 
     final desktopHeader = Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -468,13 +491,13 @@ class _MainShellState extends State<MainShell> {
                 child: Column(
                   children: [
                     desktopHeader,
-                    Expanded(child: content),
+                    Expanded(child: animatedContent),
                   ],
                 ),
               ),
             ],
           )
-        : content;
+        : animatedContent;
 
     return Scaffold(
       appBar: isDesktop

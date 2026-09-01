@@ -49,15 +49,22 @@ class AppProgressBar extends StatelessWidget {
             color: isDark ? const Color(0xFF27272A) : const Color(0xFFE4E4E7),
             borderRadius: BorderRadius.circular(3),
           ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: clamped / 100.0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white : const Color(0xFF18181B),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.0, end: clamped / 100.0),
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+            builder: (context, factor, child) {
+              return FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: factor,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white : const Color(0xFF18181B),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],

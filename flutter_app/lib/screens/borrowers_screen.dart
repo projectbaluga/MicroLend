@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/borrower.dart';
 import '../store/app_state.dart';
@@ -157,6 +158,12 @@ class _BorrowersScreenState extends State<BorrowersScreen> {
 
                         Provider.of<AppState>(context, listen: false).addBorrower(newBorrower);
                         Navigator.pop(ctx);
+
+                        if (!context.mounted) return;
+                        HapticFeedback.lightImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Borrower added successfully')),
+                        );
                       },
                       child: const Text('Save Borrower'),
                     ),
@@ -288,22 +295,30 @@ class _BorrowersScreenState extends State<BorrowersScreen> {
                         }
 
                         if (isDesktop) {
-                          return GridView.builder(
-                            itemCount: filtered.length,
-                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 450,
-                              mainAxisExtent: 110,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
+                          return RefreshIndicator(
+                            onRefresh: () => state.reload(),
+                            child: GridView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: filtered.length,
+                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 450,
+                                mainAxisExtent: 110,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
+                              itemBuilder: (context, idx) => buildBorrowerCard(filtered[idx]),
                             ),
-                            itemBuilder: (context, idx) => buildBorrowerCard(filtered[idx]),
                           );
                         }
 
-                        return ListView.separated(
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, idx) => buildBorrowerCard(filtered[idx]),
+                        return RefreshIndicator(
+                          onRefresh: () => state.reload(),
+                          child: ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (context, idx) => buildBorrowerCard(filtered[idx]),
+                          ),
                         );
                       },
                     ),
