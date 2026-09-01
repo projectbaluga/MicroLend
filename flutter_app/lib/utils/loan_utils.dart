@@ -288,6 +288,8 @@ class LoanUtils {
     return schedule;
   }
 
+  static const double kPaymentEpsilon = 0.005;
+
   static List<ScheduleInstallment> getScheduleWithStatus(
     List<ScheduleInstallment> schedule,
     List<Payment> payments, [
@@ -304,11 +306,11 @@ class LoanUtils {
       double paidAmount = 0.0;
       String status = 'pending';
 
-      if (availablePayment >= instAmount) {
+      if (availablePayment >= instAmount - kPaymentEpsilon) {
         paidAmount = instAmount;
-        availablePayment -= instAmount;
+        availablePayment = max(0.0, availablePayment - instAmount);
         status = 'paid';
-      } else if (availablePayment > 0) {
+      } else if (availablePayment > kPaymentEpsilon) {
         paidAmount = availablePayment;
         availablePayment = 0.0;
         status = 'partial';
