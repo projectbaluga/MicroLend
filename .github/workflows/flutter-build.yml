@@ -223,6 +223,42 @@ jobs:
           name: ${{ needs.version.outputs.app_slug }}-ios-unsigned-${{ needs.version.outputs.version_name }}
           path: flutter_app/build/ios/iphoneos
 
+  macos-build:
+    name: Build macOS Desktop (Release)
+    needs: version
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply Branding Overrides
+        shell: bash
+        env:
+          ICON_URL: ${{ inputs.icon_url || vars.ICON_URL }}
+          APP_NAME: ${{ inputs.app_name || vars.APP_NAME }}
+          APP_DESCRIPTION: ${{ inputs.app_description || vars.APP_DESCRIPTION }}
+          BRAND_COLOR: ${{ inputs.brand_color || vars.BRAND_COLOR }}
+        run: bash tool/apply_branding.sh
+
+      - name: Build macOS App (Release)
+        run: flutter build macos --release --dart-define=APP_NAME="${{ inputs.app_name || vars.APP_NAME }}" --dart-define=APP_DESCRIPTION="${{ inputs.app_description || vars.APP_DESCRIPTION }}" --build-name="${{ needs.version.outputs.version_name }}" --build-number="${{ needs.version.outputs.build_number }}"
+
+      - name: Upload macOS Desktop Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.version.outputs.app_slug }}-macos-${{ needs.version.outputs.version_name }}
+          path: flutter_app/build/macos/Build/Products/Release/
+
   windows-build:
     name: Build Windows Desktop (Release)
     needs: version
@@ -268,7 +304,7 @@ jobs:
   release:
     name: Publish GitHub Release
     if: github.ref_type == 'tag'
-    needs: [version, android-build, ios-build, windows-build]
+    needs: [version, android-build, ios-build, macos-build, windows-build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -285,11 +321,22 @@ jobs:
           name: ${{ needs.version.outputs.app_slug }}-android-aab-${{ needs.version.outputs.version_name }}
           path: ./artifacts/aab
 
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.version.outputs.app_slug }}-macos-${{ needs.version.outputs.version_name }}
+          path: ./artifacts/macos
+
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.version.outputs.app_slug }}-windows-desktop-${{ needs.version.outputs.version_name }}
           path: ./artifacts/windows
+
+      - name: Zip macOS Build
+        run: |
+          cd artifacts/macos
+          zip -r ../../${{ needs.version.outputs.app_slug }}-macos-${{ needs.version.outputs.version_name }}.zip .
 
       - name: Zip Windows Build
         run: |
@@ -302,6 +349,7 @@ jobs:
           files: |
             ./artifacts/apk/app-release.apk
             ./artifacts/aab/app-release.aab
+            ./${{ needs.version.outputs.app_slug }}-macos-${{ needs.version.outputs.version_name }}.zip
             ./${{ needs.version.outputs.app_slug }}-windows-${{ needs.version.outputs.version_name }}.zip
           name: MicroLend Release v${{ needs.version.outputs.version_name }}
           draft: false
