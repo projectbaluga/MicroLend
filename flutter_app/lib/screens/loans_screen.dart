@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/loan.dart';
 import '../store/app_state.dart';
@@ -448,6 +449,12 @@ class _LoansScreenState extends State<LoansScreen> {
 
                             state.addLoan(newLoan);
                             Navigator.pop(ctx);
+
+                            if (!context.mounted) return;
+                            HapticFeedback.lightImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Loan created successfully')),
+                            );
                           },
                           child: Text(state.isSoloMode ? 'Create Active Loan' : 'Create Pending Loan'),
                         ),
@@ -596,10 +603,20 @@ class _LoansScreenState extends State<LoansScreen> {
                                                   ),
                                                 );
                                                 if (confirm == true) {
-                                                  state.approveLoan(loan.id, overrideHighRisk: true);
+                                                  await state.approveLoan(loan.id, overrideHighRisk: true);
+                                                  if (!context.mounted) return;
+                                                  HapticFeedback.lightImpact();
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Loan approved')),
+                                                  );
                                                 }
                                               } else {
-                                                state.approveLoan(loan.id);
+                                                await state.approveLoan(loan.id);
+                                                if (!context.mounted) return;
+                                                HapticFeedback.lightImpact();
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Loan approved')),
+                                                );
                                               }
                                             },
                                             icon: const Icon(Icons.check, size: 14, color: Colors.white),
@@ -628,22 +645,30 @@ class _LoansScreenState extends State<LoansScreen> {
                         }
 
                         if (isDesktop) {
-                          return GridView.builder(
-                            itemCount: filtered.length,
-                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 450,
-                              mainAxisExtent: 130,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
+                          return RefreshIndicator(
+                            onRefresh: () => state.reload(),
+                            child: GridView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: filtered.length,
+                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 450,
+                                mainAxisExtent: 130,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
+                              itemBuilder: (context, idx) => buildLoanCard(filtered[idx]),
                             ),
-                            itemBuilder: (context, idx) => buildLoanCard(filtered[idx]),
                           );
                         }
 
-                        return ListView.separated(
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, idx) => buildLoanCard(filtered[idx]),
+                        return RefreshIndicator(
+                          onRefresh: () => state.reload(),
+                          child: ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (context, idx) => buildLoanCard(filtered[idx]),
+                          ),
                         );
                       },
                     ),

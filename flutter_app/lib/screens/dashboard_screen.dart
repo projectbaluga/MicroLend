@@ -159,9 +159,14 @@ class DashboardScreen extends StatelessWidget {
       statChildAspectRatio = 1.4;
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: ResponsiveContainer(
+    return RefreshIndicator(
+      onRefresh: () async {
+        await state.reload();
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: ResponsiveContainer(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -528,6 +533,7 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

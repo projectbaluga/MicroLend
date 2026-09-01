@@ -320,10 +320,20 @@ class LoanDetailScreen extends StatelessWidget {
                                 ),
                               );
                               if (confirm == true) {
-                                state.approveLoan(loan.id, overrideHighRisk: true);
+                                  await state.approveLoan(loan.id, overrideHighRisk: true);
+                                  if (!context.mounted) return;
+                                  HapticFeedback.lightImpact();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Loan approved')),
+                                  );
                               }
                             } else {
-                              state.approveLoan(loan.id);
+                                await state.approveLoan(loan.id);
+                                if (!context.mounted) return;
+                                HapticFeedback.lightImpact();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Loan approved')),
+                                );
                             }
                           },
                           icon: const Icon(Icons.check, size: 16, color: Colors.white),
@@ -332,7 +342,14 @@ class LoanDetailScreen extends StatelessWidget {
                       if (isApprover) ...[
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
-                          onPressed: () => state.markLoanStatus(loan.id, 'rejected'),
+                            onPressed: () async {
+                              await state.markLoanStatus(loan.id, 'rejected');
+                              if (!context.mounted) return;
+                              HapticFeedback.lightImpact();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Loan marked rejected')),
+                              );
+                            },
                           icon: const Icon(Icons.close, size: 16),
                           label: const Text('Reject'),
                         ),
@@ -355,13 +372,27 @@ class LoanDetailScreen extends StatelessWidget {
                       if (isApprover) ...[
                         const SizedBox(width: 8),
                         OutlinedButton(
-                          onPressed: () => state.markLoanStatus(loan.id, 'completed'),
+                          onPressed: () async {
+                            await state.markLoanStatus(loan.id, 'completed');
+                            if (!context.mounted) return;
+                            HapticFeedback.lightImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Loan marked completed')),
+                            );
+                          },
                           child: const Text('Complete'),
                         ),
                         const SizedBox(width: 8),
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
-                          onPressed: () => state.markLoanStatus(loan.id, 'defaulted'),
+                          onPressed: () async {
+                            await state.markLoanStatus(loan.id, 'defaulted');
+                            if (!context.mounted) return;
+                            HapticFeedback.lightImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Loan marked defaulted')),
+                            );
+                          },
                           child: const Text('Default'),
                         ),
                       ],
