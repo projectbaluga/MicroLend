@@ -295,11 +295,29 @@ jobs:
       - name: Build Windows Executable (Release)
         run: flutter build windows --release --dart-define=APP_NAME="${{ inputs.app_name || vars.APP_NAME }}" --dart-define=APP_DESCRIPTION="${{ inputs.app_description || vars.APP_DESCRIPTION }}" --build-name="${{ needs.version.outputs.version_name }}" --build-number="${{ needs.version.outputs.build_number }}"
 
-      - name: Upload Windows Desktop Artifact
+      - name: Compile Windows Installer (Inno Setup)
+        shell: powershell
+        run: |
+          $releaseDir = "build/windows/x64/runner/Release"
+          $exeFile = Get-ChildItem -Path $releaseDir -Filter "*.exe" | Select-Object -First 1
+          if (-not $exeFile) {
+            Write-Error "No executable found in $releaseDir"
+            exit 1
+          }
+          $exeName = $exeFile.Name
+          Write-Host "Detected Windows executable: $exeName"
+          $appName = "${{ inputs.app_name || vars.APP_NAME }}"
+          if ([string]::IsNullOrWhitespace($appName)) { $appName = "MicroLend" }
+          $versionName = "${{ needs.version.outputs.version_name }}"
+          $appSlug = "${{ needs.version.outputs.app_slug }}"
+
+          iscc /DMyAppName="$appName" /DMyAppVersion="$versionName" /DAppSlug="$appSlug" /DExeName="$exeName" windows/installer/microlend.iss
+
+      - name: Upload Windows Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ needs.version.outputs.app_slug }}-windows-desktop-${{ needs.version.outputs.version_name }}
-          path: flutter_app/build/windows/x64/runner/Release/
+          name: ${{ needs.version.outputs.app_slug }}-windows-installer-${{ needs.version.outputs.version_name }}
+          path: flutter_app/build/windows/installer/
 
   release:
     name: Publish GitHub Release
@@ -327,21 +345,16 @@ jobs:
           name: ${{ needs.version.outputs.app_slug }}-macos-${{ needs.version.outputs.version_name }}
           path: ./artifacts/macos
 
-      - name: Download Windows Artifact
+      - name: Download Windows Installer Artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.version.outputs.app_slug }}-windows-desktop-${{ needs.version.outputs.version_name }}
+          name: ${{ needs.version.outputs.app_slug }}-windows-installer-${{ needs.version.outputs.version_name }}
           path: ./artifacts/windows
 
       - name: Zip macOS Build
         run: |
           cd artifacts/macos
           zip -r ../../${{ needs.version.outputs.app_slug }}-macos-${{ needs.version.outputs.version_name }}.zip .
-
-      - name: Zip Windows Build
-        run: |
-          cd artifacts/windows
-          zip -r ../../${{ needs.version.outputs.app_slug }}-windows-${{ needs.version.outputs.version_name }}.zip .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -350,7 +363,7 @@ jobs:
             ./artifacts/apk/app-release.apk
             ./artifacts/aab/app-release.aab
             ./${{ needs.version.outputs.app_slug }}-macos-${{ needs.version.outputs.version_name }}.zip
-            ./${{ needs.version.outputs.app_slug }}-windows-${{ needs.version.outputs.version_name }}.zip
+            ./artifacts/windows/${{ needs.version.outputs.app_slug }}-windows-setup-${{ needs.version.outputs.version_name }}.exe
           name: MicroLend Release v${{ needs.version.outputs.version_name }}
           draft: false
           prerelease: false
