@@ -449,7 +449,7 @@ class _LoansScreenState extends State<LoansScreen> {
                             state.addLoan(newLoan);
                             Navigator.pop(ctx);
                           },
-                          child: const Text('Create Pending Loan'),
+                          child: Text(state.isSoloMode ? 'Create Active Loan' : 'Create Pending Loan'),
                         ),
                       ],
                     ),
@@ -570,7 +570,7 @@ class _LoansScreenState extends State<LoansScreen> {
                                 if (loan.status == 'pending')
                                   Align(
                                     alignment: Alignment.centerRight,
-                                    child: (state.currentUser?.role == 'approver' && loan.createdBy != state.currentUser?.id)
+                                    child: (state.isSoloMode || (state.currentUser?.role == 'approver' && loan.createdBy != state.currentUser?.id))
                                         ? ElevatedButton.icon(
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: const Color(0xFF059669),

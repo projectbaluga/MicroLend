@@ -184,6 +184,8 @@ class AppState extends ChangeNotifier {
         .toList();
   }
 
+  bool get isSoloMode => users.length <= 1;
+
   Future<void> changePassword(String userId, String oldPassword, String newPassword) async {
     final userMaps = store.getCollection('users');
     final match = userMaps.where((m) => m['id'] == userId).toList();
@@ -341,13 +343,39 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addLoan(Loan loan) async {
-    if (_currentUser == null || _currentUser!.role == 'viewer') {
+    if (_currentUser == null || (!isSoloMode && _currentUser!.role == 'viewer')) {
       throw StateError('Unauthorized: Role "${_currentUser?.role ?? "unauthenticated"}" cannot create loans.');
     }
-    final loanToSave = loan.createdBy == null
-        ? loan.copyWith(createdBy: _currentUser!.id)
-        : loan;
-    await store.addItem('loans', loanToSave.toMap());
+
+    final createdBy = loan.createdBy ?? _currentUser!.id;
+
+    if (isSoloMode) {
+      final disbursementDate = loan.disbursementDate.isNotEmpty
+          ? loan.disbursementDate
+          : DateTime.now().toIso8601String().split('T')[0];
+
+      final schedule = loan.schedule.isNotEmpty
+          ? loan.schedule
+          : LoanUtils.generateSchedule(
+              loan.principal,
+              loan.interestRate,
+              loan.termCount,
+              disbursementDate,
+              repaymentFrequency: loan.repaymentFrequency,
+              interestMethod: loan.interestMethod,
+            );
+
+      final soloLoan = loan.copyWith(
+        status: 'active',
+        disbursementDate: disbursementDate,
+        schedule: schedule,
+        createdBy: createdBy,
+      );
+      await store.addItem('loans', soloLoan.toMap());
+    } else {
+      final loanToSave = loan.copyWith(createdBy: createdBy);
+      await store.addItem('loans', loanToSave.toMap());
+    }
     notifyListeners();
   }
 
@@ -357,7 +385,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> approveLoan(String loanId, {bool overrideHighRisk = false}) async {
-    if (_currentUser == null || _currentUser!.role != 'approver') {
+    if (_currentUser == null || (!isSoloMode && _currentUser!.role != 'approver')) {
       throw StateError('Unauthorized: Only approvers can approve loans.');
     }
 
@@ -366,7 +394,7 @@ class AppState extends ChangeNotifier {
       throw ArgumentError('Cannot approve loan with status "${loan.status}". Only pending loans can be approved.');
     }
 
-    if (loan.createdBy != null && loan.createdBy == _currentUser!.id) {
+    if (!isSoloMode && loan.createdBy != null && loan.createdBy == _currentUser!.id) {
       throw StateError('Unauthorized: Separation of duties violation. Loan creator cannot approve their own loan.');
     }
 
@@ -398,7 +426,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> markLoanStatus(String loanId, String status) async {
-    if (_currentUser == null || _currentUser!.role != 'approver') {
+    if (_currentUser == null || (!isSoloMode && _currentUser!.role != 'approver')) {
       throw StateError('Unauthorized: Only approvers can change loan status.');
     }
 

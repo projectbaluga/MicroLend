@@ -24,10 +24,41 @@ void main() {
       await appState.login('admin', 'admin123');
     });
 
+    test('solo mode auto-activates loan creation and bypasses separation of duties', () async {
+      expect(appState.isSoloMode, isTrue);
+
+      final soloLoan = Loan(
+        id: 'solo_loan_1',
+        borrowerId: 'b1',
+        principal: 3000.0,
+        interestRate: 10.0,
+        termMonths: 6,
+        purpose: 'Solo Operator Loan',
+        status: 'pending',
+        disbursementDate: '2026-03-01',
+        schedule: [],
+        payments: [],
+        notes: '',
+      );
+
+      await appState.addLoan(soloLoan);
+
+      final created = appState.loans.firstWhere((l) => l.id == 'solo_loan_1');
+      expect(created.status, 'active');
+      expect(created.schedule.isNotEmpty, isTrue);
+      expect(created.createdBy, appState.currentUser!.id);
+
+      // Transitioning status or approving if pending does not throw separation of duties error in solo mode
+      await appState.markLoanStatus('solo_loan_1', 'completed');
+      expect(appState.loans.firstWhere((l) => l.id == 'solo_loan_1').status, 'completed');
+    });
+
     test('RBAC role enforcement, createUser and separation of duties', () async {
       // 1. Create officer user using admin (approver role)
       await appState.createUser('officer_jane', 'officer123', 'officer');
       await appState.createUser('viewer_bob', 'viewer123', 'viewer');
+
+      expect(appState.isSoloMode, isFalse);
 
       // 2. Viewer role cannot create loans or users
       await appState.login('viewer_bob', 'viewer123');

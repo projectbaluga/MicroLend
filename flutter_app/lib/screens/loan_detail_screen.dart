@@ -245,10 +245,10 @@ class LoanDetailScreen extends StatelessWidget {
     final borrower = borrowers.firstWhere((b) => b.id == loan.borrowerId, orElse: () => borrowers.first);
     final stats = LoanUtils.getLoanStats(loan);
 
-    final isApprover = state.currentUser != null && state.currentUser!.role == 'approver';
+    final isApprover = state.currentUser != null && (state.isSoloMode || state.currentUser!.role == 'approver');
     final isOfficerOrApprover = state.currentUser != null &&
-        (state.currentUser!.role == 'officer' || state.currentUser!.role == 'approver');
-    final canApproveThisLoan = isApprover && loan.createdBy != state.currentUser?.id;
+        (state.isSoloMode || state.currentUser!.role == 'officer' || state.currentUser!.role == 'approver');
+    final canApproveThisLoan = isApprover && (state.isSoloMode || loan.createdBy != state.currentUser?.id);
 
     final deductionAmount = LoanUtils.calculateUpfrontDeduction(
       loan.principal,
@@ -337,7 +337,7 @@ class LoanDetailScreen extends StatelessWidget {
                           label: const Text('Reject'),
                         ),
                       ],
-                      if (!canApproveThisLoan)
+                      if (!canApproveThisLoan && !state.isSoloMode)
                         Text(
                           loan.createdBy == state.currentUser?.id
                               ? ' (Creator cannot approve own loan)'
