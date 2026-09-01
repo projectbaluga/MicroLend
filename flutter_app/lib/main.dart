@@ -186,6 +186,22 @@ class _ForcePasswordChangeScreenState extends State<ForcePasswordChangeScreen> {
   }
 }
 
+class _NavDestination {
+  final String key;
+  final String label;
+  final IconData iconOutline;
+  final IconData iconSelected;
+  final Widget Function(_MainShellState state) builder;
+
+  const _NavDestination({
+    required this.key,
+    required this.label,
+    required this.iconOutline,
+    required this.iconSelected,
+    required this.builder,
+  });
+}
+
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -199,6 +215,55 @@ class _MainShellState extends State<MainShell> {
   String? _selectedLoanId;
   String? _issueLoanBorrowerId;
 
+  List<_NavDestination> _getNavDestinations(bool isSoloMode) {
+    return [
+      _NavDestination(
+        key: 'dashboard',
+        label: 'Dashboard',
+        iconOutline: Icons.dashboard_outlined,
+        iconSelected: Icons.dashboard,
+        builder: (s) => DashboardScreen(
+          onSelectLoan: (id) => s.setState(() => s._selectedLoanId = id),
+          onSelectBorrower: (id) => s.setState(() => s._selectedBorrowerId = id),
+        ),
+      ),
+      _NavDestination(
+        key: 'borrowers',
+        label: 'Borrowers',
+        iconOutline: Icons.people_outline,
+        iconSelected: Icons.people,
+        builder: (s) => BorrowersScreen(
+          onSelectBorrower: (id) => s.setState(() => s._selectedBorrowerId = id),
+        ),
+      ),
+      _NavDestination(
+        key: 'loans',
+        label: 'Loans',
+        iconOutline: Icons.credit_card_outlined,
+        iconSelected: Icons.credit_card,
+        builder: (s) => LoansScreen(
+          onSelectLoan: (id) => s.setState(() => s._selectedLoanId = id),
+          initialBorrowerId: s._issueLoanBorrowerId,
+        ),
+      ),
+      if (!isSoloMode)
+        _NavDestination(
+          key: 'users',
+          label: 'Users',
+          iconOutline: Icons.manage_accounts_outlined,
+          iconSelected: Icons.manage_accounts,
+          builder: (s) => const UsersScreen(),
+        ),
+      _NavDestination(
+        key: 'settings',
+        label: 'Settings',
+        iconOutline: Icons.settings_outlined,
+        iconSelected: Icons.settings,
+        builder: (s) => const SettingsScreen(),
+      ),
+    ];
+  }
+
   void _navigateToTab(int index) {
     setState(() {
       _currentIndex = index;
@@ -208,32 +273,34 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _navigateToKey(String key, List<_NavDestination> destinations) {
+    final idx = destinations.indexWhere((d) => d.key == key);
+    if (idx != -1) {
+      _navigateToTab(idx);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = Provider.of<AppState>(context);
     final isDesktop = ResponsiveContainer.isDesktop(context);
     final isLargeDesktop = ResponsiveContainer.isLargeDesktop(context);
 
-    String title = appTitle;
-    String? categoryTabName;
-    if (_currentIndex == 0) {
-      categoryTabName = 'Dashboard';
-    } else if (_currentIndex == 1) {
-      categoryTabName = 'Borrowers';
-    } else if (_currentIndex == 2) {
-      categoryTabName = 'Loans';
-    } else if (_currentIndex == 3) {
-      categoryTabName = 'Users';
-    } else if (_currentIndex == 4) {
-      categoryTabName = 'Settings';
+    final destinations = _getNavDestinations(state.isSoloMode);
+    if (_currentIndex >= destinations.length) {
+      _currentIndex = 0;
     }
 
+    final activeDest = destinations[_currentIndex];
+    final categoryTabName = activeDest.label;
+
+    String title = appTitle;
     if (_selectedLoanId != null) {
       title = 'Loan Details';
     } else if (_selectedBorrowerId != null) {
       title = 'Borrower Profile';
     } else {
-      title = categoryTabName ?? appTitle;
+      title = categoryTabName;
     }
 
     Widget content;
@@ -257,37 +324,12 @@ class _MainShellState extends State<MainShell> {
           setState(() {
             _selectedBorrowerId = null;
             _issueLoanBorrowerId = borrowerId;
-            _currentIndex = 2;
+            _navigateToKey('loans', destinations);
           });
         },
       );
     } else {
-      switch (_currentIndex) {
-        case 0:
-          content = DashboardScreen(
-            onSelectLoan: (id) => setState(() => _selectedLoanId = id),
-            onSelectBorrower: (id) => setState(() => _selectedBorrowerId = id),
-          );
-          break;
-        case 1:
-          content = BorrowersScreen(
-            onSelectBorrower: (id) => setState(() => _selectedBorrowerId = id),
-          );
-          break;
-        case 2:
-          content = LoansScreen(
-            onSelectLoan: (id) => setState(() => _selectedLoanId = id),
-            initialBorrowerId: _issueLoanBorrowerId,
-          );
-          break;
-        case 3:
-          content = const UsersScreen();
-          break;
-        case 4:
-        default:
-          content = const SettingsScreen();
-          break;
-      }
+      content = activeDest.builder(this);
     }
 
     final desktopHeader = Container(
@@ -310,7 +352,7 @@ class _MainShellState extends State<MainShell> {
               },
             ),
             const SizedBox(width: 8),
-            Text(categoryTabName ?? 'Overview', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            Text(categoryTabName, style: const TextStyle(fontSize: 14, color: Colors.grey)),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 6),
               child: Icon(Icons.chevron_right, size: 16, color: Colors.grey),
@@ -413,33 +455,13 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
                 ),
-                destinations: const [
-                  NavigationRailDestination(
-                    icon: Icon(Icons.dashboard_outlined),
-                    selectedIcon: Icon(Icons.dashboard),
-                    label: Text('Dashboard'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.people_outline),
-                    selectedIcon: Icon(Icons.people),
-                    label: Text('Borrowers'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.credit_card_outlined),
-                    selectedIcon: Icon(Icons.credit_card),
-                    label: Text('Loans'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.manage_accounts_outlined),
-                    selectedIcon: Icon(Icons.manage_accounts),
-                    label: Text('Users'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.settings_outlined),
-                    selectedIcon: Icon(Icons.settings),
-                    label: Text('Settings'),
-                  ),
-                ],
+                destinations: destinations.map((d) {
+                  return NavigationRailDestination(
+                    icon: Icon(d.iconOutline),
+                    selectedIcon: Icon(d.iconSelected),
+                    label: Text(d.label),
+                  );
+                }).toList(),
               ),
               const VerticalDivider(thickness: 1, width: 1),
               Expanded(
@@ -499,33 +521,13 @@ class _MainShellState extends State<MainShell> {
               currentIndex: _currentIndex,
               onTap: _navigateToTab,
               type: BottomNavigationBarType.fixed,
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.dashboard_outlined),
-                  activeIcon: Icon(Icons.dashboard),
-                  label: 'Dashboard',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.people_outline),
-                  activeIcon: Icon(Icons.people),
-                  label: 'Borrowers',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.credit_card_outlined),
-                  activeIcon: Icon(Icons.credit_card),
-                  label: 'Loans',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.manage_accounts_outlined),
-                  activeIcon: Icon(Icons.manage_accounts),
-                  label: 'Users',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.settings_outlined),
-                  activeIcon: Icon(Icons.settings),
-                  label: 'Settings',
-                ),
-              ],
+              items: destinations.map((d) {
+                return BottomNavigationBarItem(
+                  icon: Icon(d.iconOutline),
+                  activeIcon: Icon(d.iconSelected),
+                  label: d.label,
+                );
+              }).toList(),
             ),
     );
   }
