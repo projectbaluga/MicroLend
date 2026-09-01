@@ -663,6 +663,9 @@ class LoanDetailScreen extends StatelessWidget {
                               DataColumn(label: Text('Amount', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                               DataColumn(label: Text('Principal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                               DataColumn(label: Text('Interest', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Paid', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Remaining', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('Balance', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                               DataColumn(label: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                             ],
                             rows: stats.scheduleWithStatus.map((inst) {
@@ -673,6 +676,9 @@ class LoanDetailScreen extends StatelessWidget {
                                   DataCell(Text(LoanUtils.formatCurrency(inst.amount, state.currencyCode), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                   DataCell(Text(LoanUtils.formatCurrency(inst.principal, state.currencyCode), style: const TextStyle(fontSize: 11, color: Colors.grey))),
                                   DataCell(Text(LoanUtils.formatCurrency(inst.interest, state.currencyCode), style: const TextStyle(fontSize: 11, color: Colors.grey))),
+                                      DataCell(Text(LoanUtils.formatCurrency(inst.paidAmount, state.currencyCode), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)))),
+                                      DataCell(Text(LoanUtils.formatCurrency(inst.remainingAmount, state.currencyCode), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: inst.remainingAmount > 0 ? Colors.redAccent : Colors.grey))),
+                                      DataCell(Text(LoanUtils.formatCurrency(inst.balance, state.currencyCode), style: const TextStyle(fontSize: 11, color: Colors.grey))),
                                   DataCell(AppBadge(text: inst.status, variant: inst.status)),
                                 ],
                               );
@@ -702,6 +708,19 @@ class LoanDetailScreen extends StatelessWidget {
                                       Text(
                                         'P: ${LoanUtils.formatCurrency(inst.principal, state.currencyCode)} | I: ${LoanUtils.formatCurrency(inst.interest, state.currencyCode)}',
                                         style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Paid: ${LoanUtils.formatCurrency(inst.paidAmount, state.currencyCode)} | Rem: ${LoanUtils.formatCurrency(inst.remainingAmount, state.currencyCode)} | Bal: ${LoanUtils.formatCurrency(inst.balance, state.currencyCode)}',
+                                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      SizedBox(
+                                        width: 120,
+                                        child: AppProgressBar(
+                                          percentage: inst.amount > 0 ? ((inst.paidAmount / inst.amount) * 100).round() : 0,
+                                          showLabel: false,
+                                        ),
                                       ),
                                     ],
                                   ),

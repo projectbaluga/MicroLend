@@ -160,6 +160,25 @@ void main() {
       expect(result[1].paidAmount, 50.0);
       expect(result[1].remainingAmount, 50.0);
     });
+
+    test('LoanUtils.getScheduleWithStatus handles floating point residue with epsilon tolerance', () {
+      final schedule = [
+        ScheduleInstallment(installmentNo: 1, dueDate: '2099-01-01', amount: 958.33, principal: 900.0, interest: 58.33, balance: 1916.67),
+        ScheduleInstallment(installmentNo: 2, dueDate: '2099-02-01', amount: 958.33, principal: 900.0, interest: 58.33, balance: 1016.67),
+        ScheduleInstallment(installmentNo: 3, dueDate: '2099-03-01', amount: 958.34, principal: 900.0, interest: 58.34, balance: 0.0),
+      ];
+
+      final payments = [
+        Payment(id: 'p1', date: '2026-01-01', amount: 1916.659, method: 'Cash', note: ''),
+      ];
+
+      final statusSched = LoanUtils.getScheduleWithStatus(schedule, payments);
+      expect(statusSched[0].status, 'paid');
+      expect(statusSched[0].remainingAmount, 0.0);
+      expect(statusSched[1].status, 'paid');
+      expect(statusSched[1].remainingAmount, 0.0);
+      expect(statusSched[2].status, 'pending');
+    });
   });
 
   group('LoanUtils.assessBorrower', () {
