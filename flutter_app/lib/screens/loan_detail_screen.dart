@@ -26,6 +26,36 @@ class LoanDetailScreen extends StatelessWidget {
     required this.onSelectBorrower,
   });
 
+  Future<bool> _showConfirmDialog({
+    required BuildContext context,
+    required String title,
+    required String message,
+    String confirmText = 'Confirm',
+    Color? confirmColor,
+  }) async {
+    final res = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: confirmColor != null
+                ? ElevatedButton.styleFrom(backgroundColor: confirmColor)
+                : null,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmText, style: confirmColor != null ? const TextStyle(color: Colors.white) : null),
+          ),
+        ],
+      ),
+    );
+    return res ?? false;
+  }
+
   void _showTextDialog({
     required BuildContext context,
     required String title,
@@ -264,7 +294,7 @@ class LoanDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBack),
-        title: Text(loan.purpose),
+        title: const Text('Loan Details'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -301,39 +331,45 @@ class LoanDetailScreen extends StatelessWidget {
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
                           onPressed: () async {
-                            if (loan.creditAssessment?.riskRating == 'high') {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('High Risk Loan Warning'),
-                                  content: Text(
-                                    'Borrower "${borrower.fullName}" is rated HIGH RISK (DTI ${loan.creditAssessment?.dtiPct ?? 0}%).\n\nAre you sure you want to approve this loan with explicit override?',
-                                  ),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      child: const Text('Approve Override', style: TextStyle(color: Colors.white)),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (confirm == true) {
+                            try {
+                              if (loan.creditAssessment?.riskRating == 'high') {
+                                final confirm = await _showConfirmDialog(
+                                  context: context,
+                                  title: 'High Risk Loan Warning',
+                                  message: 'Borrower "${borrower.fullName}" is rated HIGH RISK (DTI ${loan.creditAssessment?.dtiPct ?? 0}%).\n\nAre you sure you want to approve this loan with explicit override?',
+                                  confirmText: 'Approve Override',
+                                  confirmColor: Colors.orangeAccent,
+                                );
+                                if (confirm) {
                                   await state.approveLoan(loan.id, overrideHighRisk: true);
                                   if (!context.mounted) return;
                                   HapticFeedback.lightImpact();
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text('Loan approved')),
                                   );
-                              }
-                            } else {
-                                await state.approveLoan(loan.id);
-                                if (!context.mounted) return;
-                                HapticFeedback.lightImpact();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Loan approved')),
+                                }
+                              } else {
+                                final confirm = await _showConfirmDialog(
+                                  context: context,
+                                  title: 'Approve Loan',
+                                  message: 'Approve this loan?',
+                                  confirmText: 'Approve',
+                                  confirmColor: const Color(0xFF059669),
                                 );
+                                if (confirm) {
+                                  await state.approveLoan(loan.id);
+                                  if (!context.mounted) return;
+                                  HapticFeedback.lightImpact();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Loan approved')),
+                                  );
+                                }
+                              }
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Action failed: ${e.toString().replaceAll('StateError: ', '').replaceAll('ArgumentError: ', '')}')),
+                              );
                             }
                           },
                           icon: const Icon(Icons.check, size: 16, color: Colors.white),
@@ -342,14 +378,30 @@ class LoanDetailScreen extends StatelessWidget {
                       if (isApprover) ...[
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
-                            onPressed: () async {
-                              await state.markLoanStatus(loan.id, 'rejected');
-                              if (!context.mounted) return;
-                              HapticFeedback.lightImpact();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Loan marked rejected')),
+                          onPressed: () async {
+                            try {
+                              final confirm = await _showConfirmDialog(
+                                context: context,
+                                title: 'Reject Loan',
+                                message: 'Reject this loan? This cannot be undone.',
+                                confirmText: 'Reject',
+                                confirmColor: Colors.redAccent,
                               );
-                            },
+                              if (confirm) {
+                                await state.markLoanStatus(loan.id, 'rejected');
+                                if (!context.mounted) return;
+                                HapticFeedback.lightImpact();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Loan marked rejected')),
+                                );
+                              }
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Action failed: ${e.toString().replaceAll('StateError: ', '').replaceAll('ArgumentError: ', '')}')),
+                              );
+                            }
+                          },
                           icon: const Icon(Icons.close, size: 16),
                           label: const Text('Reject'),
                         ),
@@ -373,12 +425,27 @@ class LoanDetailScreen extends StatelessWidget {
                         const SizedBox(width: 8),
                         OutlinedButton(
                           onPressed: () async {
-                            await state.markLoanStatus(loan.id, 'completed');
-                            if (!context.mounted) return;
-                            HapticFeedback.lightImpact();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Loan marked completed')),
-                            );
+                            try {
+                              final confirm = await _showConfirmDialog(
+                                context: context,
+                                title: 'Complete Loan',
+                                message: 'Mark loan as completed?',
+                                confirmText: 'Complete',
+                              );
+                              if (confirm) {
+                                await state.markLoanStatus(loan.id, 'completed');
+                                if (!context.mounted) return;
+                                HapticFeedback.lightImpact();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Loan marked completed')),
+                                );
+                              }
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Action failed: ${e.toString().replaceAll('StateError: ', '').replaceAll('ArgumentError: ', '')}')),
+                              );
+                            }
                           },
                           child: const Text('Complete'),
                         ),
@@ -386,12 +453,28 @@ class LoanDetailScreen extends StatelessWidget {
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
                           onPressed: () async {
-                            await state.markLoanStatus(loan.id, 'defaulted');
-                            if (!context.mounted) return;
-                            HapticFeedback.lightImpact();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Loan marked defaulted')),
-                            );
+                            try {
+                              final confirm = await _showConfirmDialog(
+                                context: context,
+                                title: 'Default Loan',
+                                message: 'Mark loan as defaulted? This penalizes the borrower\'s credit score and forces their risk rating to HIGH.',
+                                confirmText: 'Mark Defaulted',
+                                confirmColor: Colors.redAccent,
+                              );
+                              if (confirm) {
+                                await state.markLoanStatus(loan.id, 'defaulted');
+                                if (!context.mounted) return;
+                                HapticFeedback.lightImpact();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Loan marked defaulted')),
+                                );
+                              }
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Action failed: ${e.toString().replaceAll('StateError: ', '').replaceAll('ArgumentError: ', '')}')),
+                              );
+                            }
                           },
                           child: const Text('Default'),
                         ),
@@ -439,8 +522,10 @@ class LoanDetailScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   const Divider(),
                   const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.spaceBetween,
                     children: [
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -564,35 +649,78 @@ class LoanDetailScreen extends StatelessWidget {
                 children: [
                   const Text('Amortization Schedule', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columnSpacing: 16,
-                      headingRowHeight: 32,
-                      dataRowMinHeight: 36,
-                      dataRowMaxHeight: 36,
-                      columns: const [
-                        DataColumn(label: Text('#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Due Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Amount', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Principal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Interest', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                      ],
-                      rows: stats.scheduleWithStatus.map((inst) {
-                        return DataRow(
-                          cells: [
-                            DataCell(Text('${inst.installmentNo}', style: const TextStyle(fontSize: 11))),
-                            DataCell(Text(LoanUtils.formatDate(inst.dueDate), style: const TextStyle(fontSize: 11))),
-                            DataCell(Text(LoanUtils.formatCurrency(inst.amount, state.currencyCode), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                            DataCell(Text(LoanUtils.formatCurrency(inst.principal, state.currencyCode), style: const TextStyle(fontSize: 11, color: Colors.grey))),
-                            DataCell(Text(LoanUtils.formatCurrency(inst.interest, state.currencyCode), style: const TextStyle(fontSize: 11, color: Colors.grey))),
-                            DataCell(AppBadge(text: inst.status, variant: inst.status)),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
+                  ResponsiveContainer.isDesktop(context)
+                      ? SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            columnSpacing: 16,
+                            headingRowHeight: 32,
+                            dataRowMinHeight: 36,
+                            dataRowMaxHeight: 36,
+                            columns: const [
+                              DataColumn(label: Text('#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Due Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Amount', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Principal', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Interest', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                            ],
+                            rows: stats.scheduleWithStatus.map((inst) {
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text('${inst.installmentNo}', style: const TextStyle(fontSize: 11))),
+                                  DataCell(Text(LoanUtils.formatDate(inst.dueDate), style: const TextStyle(fontSize: 11))),
+                                  DataCell(Text(LoanUtils.formatCurrency(inst.amount, state.currencyCode), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                  DataCell(Text(LoanUtils.formatCurrency(inst.principal, state.currencyCode), style: const TextStyle(fontSize: 11, color: Colors.grey))),
+                                  DataCell(Text(LoanUtils.formatCurrency(inst.interest, state.currencyCode), style: const TextStyle(fontSize: 11, color: Colors.grey))),
+                                  DataCell(AppBadge(text: inst.status, variant: inst.status)),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: stats.scheduleWithStatus.length,
+                          separatorBuilder: (_, __) => const Divider(height: 12),
+                          itemBuilder: (context, idx) {
+                            final inst = stats.scheduleWithStatus[idx];
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '#${inst.installmentNo} • Due ${LoanUtils.formatDate(inst.dueDate)}',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'P: ${LoanUtils.formatCurrency(inst.principal, state.currencyCode)} | I: ${LoanUtils.formatCurrency(inst.interest, state.currencyCode)}',
+                                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        LoanUtils.formatCurrency(inst.amount, state.currencyCode),
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      AppBadge(text: inst.status, variant: inst.status),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                 ],
               ),
             ),
