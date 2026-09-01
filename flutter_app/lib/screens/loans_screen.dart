@@ -394,7 +394,7 @@ class _LoansScreenState extends State<LoansScreen> {
                         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
                         const SizedBox(width: 8),
                         ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             final penVal = double.tryParse(penaltyValueCtrl.text.trim()) ?? 0.0;
                             final purpose = purposeCtrl.text.trim().isEmpty ? 'Working Capital' : purposeCtrl.text.trim();
 
@@ -447,14 +447,22 @@ class _LoansScreenState extends State<LoansScreen> {
                               createdAt: dateCtrl.text.trim(),
                             );
 
-                            state.addLoan(newLoan);
-                            Navigator.pop(ctx);
+                            try {
+                              await state.addLoan(newLoan);
+                              if (!ctx.mounted) return;
+                              Navigator.pop(ctx);
 
-                            if (!context.mounted) return;
-                            HapticFeedback.lightImpact();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Loan created successfully')),
-                            );
+                              if (!context.mounted) return;
+                              HapticFeedback.lightImpact();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Loan created successfully')),
+                              );
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to create loan: ${e.toString().replaceAll('StateError: ', '')}')),
+                              );
+                            }
                           },
                           child: Text(state.isSoloMode ? 'Create Active Loan' : 'Create Pending Loan'),
                         ),

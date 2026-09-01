@@ -167,10 +167,10 @@ class DashboardScreen extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16.0),
         child: ResponsiveContainer(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Stat Cards Grid
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Stat Cards Grid
             GridView.count(
               crossAxisCount: statGridColumns,
               shrinkWrap: true,
@@ -468,72 +468,72 @@ class DashboardScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Recent Loans List
-            CustomCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Recent Loans & Progress',
-                    style: TextStyle(fontSize: isDesktop ? 16 : 14, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: recentLoans.length > 5 ? 5 : recentLoans.length,
-                    separatorBuilder: (_, __) => const Divider(height: 16),
-                    itemBuilder: (context, idx) {
-                      final loan = recentLoans[idx];
-                      final b = borrowerMap[loan.borrowerId];
-                      final stats = LoanUtils.getLoanStats(loan);
+              // Recent Loans List
+              CustomCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recent Loans & Progress',
+                      style: TextStyle(fontSize: isDesktop ? 16 : 14, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: recentLoans.length > 5 ? 5 : recentLoans.length,
+                      separatorBuilder: (_, __) => const Divider(height: 16),
+                      itemBuilder: (context, idx) {
+                        final loan = recentLoans[idx];
+                        final b = borrowerMap[loan.borrowerId];
+                        final stats = LoanUtils.getLoanStats(loan);
 
-                      return InkWell(
-                        onTap: () => onSelectLoan(loan.id),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                InkWell(
-                                  onTap: () {
-                                    if (loan.borrowerId.isNotEmpty) {
-                                      onSelectBorrower(loan.borrowerId);
-                                    }
-                                  },
-                                  child: Text(
-                                    '${b?.fullName ?? 'Unknown'} (${LoanUtils.formatCurrency(loan.principal, state.currencyCode)})',
-                                    style: TextStyle(
-                                      fontSize: isDesktop ? 14 : 13,
-                                      fontWeight: FontWeight.bold,
-                                      decoration: TextDecoration.underline,
+                        return InkWell(
+                          onTap: () => onSelectLoan(loan.id),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  InkWell(
+                                    onTap: () {
+                                      if (loan.borrowerId.isNotEmpty) {
+                                        onSelectBorrower(loan.borrowerId);
+                                      }
+                                    },
+                                    child: Text(
+                                      '${b?.fullName ?? 'Unknown'} (${LoanUtils.formatCurrency(loan.principal, state.currencyCode)})',
+                                      style: TextStyle(
+                                        fontSize: isDesktop ? 14 : 13,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.underline,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                AppBadge(text: loan.status, variant: loan.status),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            if (loan.status == 'active' || loan.status == 'completed')
-                              AppProgressBar(percentage: stats.progressPct)
-                            else
-                              Text(
-                                'Purpose: ${loan.purpose}',
-                                style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
+                                  AppBadge(text: loan.status, variant: loan.status),
+                                ],
                               ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                              const SizedBox(height: 6),
+                              if (loan.status == 'active' || loan.status == 'completed')
+                                AppProgressBar(percentage: stats.progressPct)
+                              else
+                                Text(
+                                  'Purpose: ${loan.purpose}',
+                                  style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.grey),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 }
