@@ -1,0 +1,48 @@
+# GitHub Actions Workflow to Generate Machine-Bound License Key
+name: Generate Device License Key
+
+on:
+  workflow_dispatch:
+    inputs:
+      machine_id:
+        description: 'Machine ID / Device Fingerprint from app Settings -> Unlock section'
+        required: true
+        type: string
+
+defaults:
+  run:
+    working-directory: flutter_app
+
+jobs:
+  generate-license:
+    name: Generate Ed25519 License Key
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate License Key
+        env:
+          LICENSE_PRIVATE_KEY: ${{ secrets.LICENSE_PRIVATE_KEY }}
+        run: |
+          if [ -z "$LICENSE_PRIVATE_KEY" ]; then
+            echo "Error: LICENSE_PRIVATE_KEY repository secret is not set in GitHub Settings."
+            exit 1
+          fi
+          dart run tool/generate_license.dart --machine-id "${{ inputs.machine_id }}" --private-key "$LICENSE_PRIVATE_KEY" | tee license_output.txt
+
+      - name: Upload License Key Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-key-${{ inputs.machine_id }}
+          path: flutter_app/license_output.txt
