@@ -19,6 +19,10 @@ class AppState extends ChangeNotifier {
   static const String _envAppName = String.fromEnvironment('APP_NAME', defaultValue: '');
   static const String _envAppDescription = String.fromEnvironment('APP_DESCRIPTION', defaultValue: '');
 
+  static const int _borrowerLimit = 5;
+  static const String _unlockSalt = 'microlendsalt2025';
+  static const String _unlockExpectedHash = '37173851b3c16fb5b0b05ac8cbf51a8a01b2b1c33fb9aa2f7d11b378f328cb7b';
+
   final OfflineStore store;
 
   User? _currentUser;
@@ -32,6 +36,7 @@ class AppState extends ChangeNotifier {
   late String _defaultPenaltyType;
   late double _defaultPenaltyValue;
   late ThemeMode _themeMode;
+  bool _featuresUnlocked = false;
 
   AppState(this.store) {
     _loadSettings();
@@ -63,6 +68,8 @@ class AppState extends ChangeNotifier {
 
     final savedTheme = store.getSetting('themeMode', 'dark');
     _themeMode = savedTheme == 'light' ? ThemeMode.light : ThemeMode.dark;
+
+    _featuresUnlocked = store.getSetting('featuresUnlocked', 'false') == 'true';
 
     final sessionUserId = store.getSetting('session_user_id', '');
     if (sessionUserId.isNotEmpty) {
@@ -118,6 +125,25 @@ class AppState extends ChangeNotifier {
   double get defaultPenaltyValue => _defaultPenaltyValue;
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
+
+  bool get isFeaturesUnlocked => _featuresUnlocked;
+
+  Future<bool> unlockFeatures(String password) async {
+    final inputHash = User.hashPassword(password.trim(), _unlockSalt);
+    if (inputHash == _unlockExpectedHash) {
+      _featuresUnlocked = true;
+      await store.setSetting('featuresUnlocked', 'true');
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> lockFeatures() async {
+    _featuresUnlocked = false;
+    await store.setSetting('featuresUnlocked', 'false');
+    notifyListeners();
+  }
 
   Future<void> setBusinessName(String name) async {
     _businessName = name;
@@ -336,6 +362,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addBorrower(Borrower borrower) async {
+    if (!_featuresUnlocked && borrowers.length >= _borrowerLimit) {
+      throw StateError('Borrower limit reached (5). Unlock full features in Settings to add more.');
+    }
     await store.addItem('borrowers', borrower.toMap());
     notifyListeners();
   }

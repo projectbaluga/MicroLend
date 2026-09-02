@@ -116,6 +116,11 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
+              // Full Features / Unlock Section
+              const _FullFeaturesSection(),
+
+              const SizedBox(height: 16),
+
               // Business / Operator Section
               _BusinessNameSection(
                 initialName: state.businessName,
@@ -424,6 +429,99 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FullFeaturesSection extends StatefulWidget {
+  const _FullFeaturesSection();
+
+  @override
+  State<_FullFeaturesSection> createState() => _FullFeaturesSectionState();
+}
+
+class _FullFeaturesSectionState extends State<_FullFeaturesSection> {
+  final TextEditingController _passwordCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = Provider.of<AppState>(context);
+
+    return CustomCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Full Features', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          if (state.isFeaturesUnlocked) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.check_circle, size: 18, color: Colors.greenAccent),
+                    SizedBox(width: 8),
+                    Text('Unlocked (Unlimited Borrowers)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+                TextButton.icon(
+                  onPressed: () => state.lockFeatures(),
+                  icon: const Icon(Icons.lock, size: 16),
+                  label: const Text('Lock again'),
+                ),
+              ],
+            ),
+          ] else ...[
+            const Text(
+              'Free version limits maximum borrowers to 5. Enter password to unlock full features.',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _passwordCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      hintText: 'Enter unlock password...',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: () async {
+                    final pwd = _passwordCtrl.text;
+                    if (pwd.isEmpty) return;
+                    final success = await state.unlockFeatures(pwd);
+                    if (!context.mounted) return;
+                    if (success) {
+                      _passwordCtrl.clear();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Full features unlocked')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Incorrect password')),
+                      );
+                    }
+                  },
+                  child: const Text('Unlock'),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
