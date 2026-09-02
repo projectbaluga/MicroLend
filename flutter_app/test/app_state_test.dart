@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:microlend/models/borrower.dart';
 import 'package:microlend/models/credit_assessment.dart';
 import 'package:microlend/models/loan.dart';
 import 'package:microlend/models/payment.dart';
@@ -385,6 +386,80 @@ void main() {
       await appState.approveLoan('high_risk_loan_1', overrideHighRisk: true);
       final approved = appState.loans.firstWhere((l) => l.id == 'high_risk_loan_1');
       expect(approved.status, 'active');
+    });
+
+    test('borrower limit enforcement and feature unlock', () async {
+      expect(appState.isFeaturesUnlocked, isFalse);
+
+      final initialCount = appState.borrowers.length;
+      final neededToAdd = 5 - initialCount;
+
+      // Add borrowers until limit (5) is reached
+      for (int i = 0; i < neededToAdd; i++) {
+        await appState.addBorrower(Borrower(
+          id: 'b_lim_$i',
+          fullName: 'Borrower $i',
+          email: 'b$i@example.com',
+          phone: '123456789$i',
+          address: 'Address $i',
+          idNumber: 'ID-$i',
+          employment: 'Self',
+          monthlyIncome: 3000.0,
+          creditScore: 60,
+          riskRating: 'medium',
+          notes: '',
+          createdAt: '2026-01-01',
+        ));
+      }
+
+      expect(appState.borrowers.length, 5);
+
+      // 6th borrower while locked throws StateError
+      expect(
+        () => appState.addBorrower(Borrower(
+          id: 'b_lim_6',
+          fullName: 'Borrower 6',
+          email: 'b6@example.com',
+          phone: '1234567896',
+          address: 'Address 6',
+          idNumber: 'ID-6',
+          employment: 'Self',
+          monthlyIncome: 3000.0,
+          creditScore: 60,
+          riskRating: 'medium',
+          notes: '',
+          createdAt: '2026-01-01',
+        )),
+        throwsStateError,
+      );
+
+      // Incorrect unlock password returns false and remains locked
+      final failed = await appState.unlockFeatures('wrong_pass');
+      expect(failed, isFalse);
+      expect(appState.isFeaturesUnlocked, isFalse);
+
+      // Correct unlock password unlocks features
+      final success = await appState.unlockFeatures('microlendpro2025');
+      expect(success, isTrue);
+      expect(appState.isFeaturesUnlocked, isTrue);
+
+      // 6th borrower addition succeeds now that features are unlocked
+      await appState.addBorrower(Borrower(
+        id: 'b_lim_6',
+        fullName: 'Borrower 6',
+        email: 'b6@example.com',
+        phone: '1234567896',
+        address: 'Address 6',
+        idNumber: 'ID-6',
+        employment: 'Self',
+        monthlyIncome: 3000.0,
+        creditScore: 60,
+        riskRating: 'medium',
+        notes: '',
+        createdAt: '2026-01-01',
+      ));
+
+      expect(appState.borrowers.length, 6);
     });
 
     test('completion accounts for penalties and overpayment produces credit balance', () async {

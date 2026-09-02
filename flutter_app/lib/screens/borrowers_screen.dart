@@ -216,7 +216,18 @@ class _BorrowersScreenState extends State<BorrowersScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Borrowers', style: TextStyle(fontSize: isDesktop ? 20 : 18, fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    Text('Borrowers', style: TextStyle(fontSize: isDesktop ? 20 : 18, fontWeight: FontWeight.bold)),
+                    if (!state.isFeaturesUnlocked && borrowers.length >= 5) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '(Limit reached — unlock in Settings)',
+                        style: TextStyle(fontSize: isDesktop ? 12 : 11, color: Colors.amberAccent, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ],
+                ),
                 ElevatedButton.icon(
                   onPressed: () => _showAddBorrowerDialog(context),
                   icon: const Icon(Icons.person_add, size: 16),
