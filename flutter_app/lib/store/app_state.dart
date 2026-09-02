@@ -4,7 +4,9 @@ import '../models/borrower.dart';
 import '../models/loan.dart';
 import '../models/payment.dart';
 import '../models/user.dart';
+import '../utils/license_verifier.dart';
 import '../utils/loan_utils.dart';
+import '../utils/machine_id.dart';
 import 'offline_store.dart';
 
 class AppState extends ChangeNotifier {
@@ -20,8 +22,6 @@ class AppState extends ChangeNotifier {
   static const String _envAppDescription = String.fromEnvironment('APP_DESCRIPTION', defaultValue: '');
 
   static const int _borrowerLimit = 5;
-  static const String _unlockSalt = 'microlendsalt2025';
-  static const String _unlockExpectedHash = '37173851b3c16fb5b0b05ac8cbf51a8a01b2b1c33fb9aa2f7d11b378f328cb7b';
 
   final OfflineStore store;
 
@@ -37,20 +37,14 @@ class AppState extends ChangeNotifier {
   late double _defaultPenaltyValue;
   late ThemeMode _themeMode;
   bool _featuresUnlocked = false;
+  String _machineId = '';
 
   AppState(this.store) {
-    _loadSettings();
+    _loadSyncSettings();
+    _initAndLoadSettings();
   }
 
-  Future<void> reload() async {
-    try {
-      await store.reload();
-    } catch (_) {}
-    _loadSettings();
-    notifyListeners();
-  }
-
-  void _loadSettings() {
+  void _loadSyncSettings() {
     _currencyCode = store.getSetting('currencyCode', 'PHP');
     _dateFormat = store.getSetting('dateFormat', 'MMM d, yyyy');
     final defaultBusinessName = _envAppName.trim().isNotEmpty ? _envAppName.trim() : 'MicroLend Suite';
@@ -69,7 +63,57 @@ class AppState extends ChangeNotifier {
     final savedTheme = store.getSetting('themeMode', 'dark');
     _themeMode = savedTheme == 'light' ? ThemeMode.light : ThemeMode.dark;
 
-    _featuresUnlocked = store.getSetting('featuresUnlocked', 'false') == 'true';
+    final sessionUserId = store.getSetting('session_user_id', '');
+    if (sessionUserId.isNotEmpty) {
+      final userMaps = store.getCollection('users');
+      final match = userMaps.where((m) => m['id'] == sessionUserId).toList();
+      if (match.isNotEmpty) {
+        _currentUser = User.fromMap(match.first);
+      }
+    }
+  }
+
+  Future<void> _initAndLoadSettings() async {
+    _machineId = await MachineIdUtils.getMachineId();
+    await _loadSettings();
+    notifyListeners();
+  }
+
+  Future<void> reload() async {
+    try {
+      await store.reload();
+    } catch (_) {}
+    _machineId = await MachineIdUtils.getMachineId();
+    await _loadSettings();
+    notifyListeners();
+  }
+
+  Future<void> _loadSettings() async {
+    _loadSyncSettings();
+    _currencyCode = store.getSetting('currencyCode', 'PHP');
+    _dateFormat = store.getSetting('dateFormat', 'MMM d, yyyy');
+    final defaultBusinessName = _envAppName.trim().isNotEmpty ? _envAppName.trim() : 'MicroLend Suite';
+    _businessName = store.getSetting('businessName', defaultBusinessName);
+    final termStr = store.getSetting('defaultTermPeriods', store.getSetting('defaultTermMonths', '6'));
+    _defaultTermPeriods = int.tryParse(termStr) ?? 6;
+    _defaultInterestRate = double.tryParse(store.getSetting('defaultInterestRate', '12.0')) ?? 12.0;
+    _defaultRepaymentFrequency = store.getSetting('defaultRepaymentFrequency', 'monthly');
+    _defaultInterestMethod = store.getSetting('defaultInterestMethod', 'reducing');
+    _defaultPenaltyType = store.getSetting('defaultPenaltyType', 'none');
+    _defaultPenaltyValue = double.tryParse(store.getSetting('defaultPenaltyValue', '0.0')) ?? 0.0;
+
+    LoanUtils.defaultCurrencyCode = _currencyCode;
+    LoanUtils.defaultDateFormat = _dateFormat;
+
+    final savedTheme = store.getSetting('themeMode', 'dark');
+    _themeMode = savedTheme == 'light' ? ThemeMode.light : ThemeMode.dark;
+
+    final storedLicenseKey = store.getSetting('licenseKey', '');
+    if (storedLicenseKey.isNotEmpty && _machineId.isNotEmpty) {
+      _featuresUnlocked = await LicenseVerifier.verifyLicenseKey(storedLicenseKey, _machineId);
+    } else {
+      _featuresUnlocked = false;
+    }
 
     final sessionUserId = store.getSetting('session_user_id', '');
     if (sessionUserId.isNotEmpty) {
@@ -127,12 +171,16 @@ class AppState extends ChangeNotifier {
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 
   bool get isFeaturesUnlocked => _featuresUnlocked;
+  String get machineId => _machineId;
 
-  Future<bool> unlockFeatures(String password) async {
-    final inputHash = User.hashPassword(password.trim(), _unlockSalt);
-    if (inputHash == _unlockExpectedHash) {
+  Future<bool> unlockFeatures(String licenseKey, {String? overridePublicKeyHex}) async {
+    final key = licenseKey.trim();
+    if (key.isEmpty || _machineId.isEmpty) return false;
+
+    final isValid = await LicenseVerifier.verifyLicenseKey(key, _machineId, overridePublicKeyHex: overridePublicKeyHex);
+    if (isValid) {
       _featuresUnlocked = true;
-      await store.setSetting('featuresUnlocked', 'true');
+      await store.setSetting('licenseKey', key);
       notifyListeners();
       return true;
     }
@@ -141,7 +189,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> lockFeatures() async {
     _featuresUnlocked = false;
-    await store.setSetting('featuresUnlocked', 'false');
+    await store.setSetting('licenseKey', '');
     notifyListeners();
   }
 

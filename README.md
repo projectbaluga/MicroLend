@@ -44,8 +44,15 @@ flutter test
 ```
 
 ### Building Release Packages
-- **Android APK**: `cd flutter_app && flutter build apk`
-- **iOS App Bundle**: `cd flutter_app && flutter build ipa`
+- **Android APK**: `cd flutter_app && flutter build apk --release`
+- **iOS App Bundle**: `cd flutter_app && flutter build ipa --release`
+- **Obfuscated Production Release (Reverse Engineering Deterrence)**:
+  ```bash
+  cd flutter_app
+  flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols
+  flutter build windows --release --obfuscate --split-debug-info=build/windows/symbols
+  flutter build macos --release --obfuscate --split-debug-info=build/macos/symbols
+  ```
 
 ---
 
