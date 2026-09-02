@@ -442,11 +442,11 @@ class _FullFeaturesSection extends StatefulWidget {
 }
 
 class _FullFeaturesSectionState extends State<_FullFeaturesSection> {
-  final TextEditingController _passwordCtrl = TextEditingController();
+  final TextEditingController _licenseCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _passwordCtrl.dispose();
+    _licenseCtrl.dispose();
     super.dispose();
   }
 
@@ -458,8 +458,51 @@ class _FullFeaturesSectionState extends State<_FullFeaturesSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Full Features', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          const Text('Full Features & Device License', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
+
+          // Display Machine ID
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Device Fingerprint (Machine ID):', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                      const SizedBox(height: 2),
+                      SelectableText(
+                        state.machineId.isNotEmpty ? state.machineId : 'Detecting machine ID...',
+                        style: const TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 16),
+                  tooltip: 'Copy Machine ID',
+                  onPressed: () {
+                    if (state.machineId.isNotEmpty) {
+                      Clipboard.setData(ClipboardData(text: state.machineId));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Machine ID copied to clipboard! Send this ID to support for a license key.')),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
           if (state.isFeaturesUnlocked) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -468,7 +511,7 @@ class _FullFeaturesSectionState extends State<_FullFeaturesSection> {
                   children: const [
                     Icon(Icons.check_circle, size: 18, color: Colors.greenAccent),
                     SizedBox(width: 8),
-                    Text('Unlocked (Unlimited Borrowers)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    Text('Full Features Unlocked (Device Bound)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                   ],
                 ),
                 TextButton.icon(
@@ -480,7 +523,7 @@ class _FullFeaturesSectionState extends State<_FullFeaturesSection> {
             ),
           ] else ...[
             const Text(
-              'Free version limits maximum borrowers to 5. Enter password to unlock full features.',
+              'Unlicensed edition is limited to 5 borrowers. Provide your Machine ID to obtain a device-bound license key.',
               style: TextStyle(fontSize: 11, color: Colors.grey),
             ),
             const SizedBox(height: 12),
@@ -488,10 +531,9 @@ class _FullFeaturesSectionState extends State<_FullFeaturesSection> {
               children: [
                 Expanded(
                   child: TextField(
-                    controller: _passwordCtrl,
-                    obscureText: true,
+                    controller: _licenseCtrl,
                     decoration: const InputDecoration(
-                      hintText: 'Enter unlock password...',
+                      hintText: 'Enter device license key...',
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                       border: OutlineInputBorder(),
@@ -501,18 +543,18 @@ class _FullFeaturesSectionState extends State<_FullFeaturesSection> {
                 const SizedBox(width: 10),
                 ElevatedButton(
                   onPressed: () async {
-                    final pwd = _passwordCtrl.text;
-                    if (pwd.isEmpty) return;
-                    final success = await state.unlockFeatures(pwd);
+                    final key = _licenseCtrl.text;
+                    if (key.trim().isEmpty) return;
+                    final success = await state.unlockFeatures(key);
                     if (!context.mounted) return;
                     if (success) {
-                      _passwordCtrl.clear();
+                      _licenseCtrl.clear();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Full features unlocked')),
+                        const SnackBar(content: Text('Full features successfully unlocked for this device!')),
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Incorrect password')),
+                        const SnackBar(content: Text('Invalid license key for this device ID')),
                       );
                     }
                   },

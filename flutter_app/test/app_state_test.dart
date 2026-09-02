@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:cryptography/cryptography.dart';
 import 'package:microlend/models/borrower.dart';
 import 'package:microlend/models/credit_assessment.dart';
 import 'package:microlend/models/loan.dart';
@@ -9,6 +11,7 @@ import 'package:microlend/models/schedule_installment.dart';
 import 'package:microlend/store/offline_store.dart';
 import 'package:microlend/store/app_state.dart';
 import 'package:microlend/utils/loan_utils.dart';
+import 'package:microlend/utils/machine_id.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -388,13 +391,16 @@ void main() {
       expect(approved.status, 'active');
     });
 
-    test('borrower limit enforcement and feature unlock', () async {
+    test('borrower limit enforcement and device-bound license key unlock', () async {
+      MachineIdUtils.setMockMachineId('mock_target_machine_id_12345');
+      await appState.reload();
+
       expect(appState.isFeaturesUnlocked, isFalse);
+      expect(appState.machineId, 'mock_target_machine_id_12345');
 
       final initialCount = appState.borrowers.length;
       final neededToAdd = 5 - initialCount;
 
-      // Add borrowers until limit (5) is reached
       for (int i = 0; i < neededToAdd; i++) {
         await appState.addBorrower(Borrower(
           id: 'b_lim_$i',
@@ -433,17 +439,36 @@ void main() {
         throwsStateError,
       );
 
-      // Incorrect unlock password returns false and remains locked
-      final failed = await appState.unlockFeatures('wrong_pass');
-      expect(failed, isFalse);
+      // Generate test Ed25519 keypair
+      final algorithm = Ed25519();
+      final keyPair = await algorithm.newKeyPair();
+      final pubKey = await keyPair.extractPublicKey();
+      final testPubKeyHex = pubKey.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+      // Sign valid machine ID
+      final validSig = await algorithm.sign(utf8.encode('mock_target_machine_id_12345'), keyPair: keyPair);
+      final validLicenseKey = base64.encode(validSig.bytes);
+
+      // Sign a DIFFERENT machine ID
+      final wrongMachineSig = await algorithm.sign(utf8.encode('different_machine_id_99999'), keyPair: keyPair);
+      final wrongMachineLicenseKey = base64.encode(wrongMachineSig.bytes);
+
+      // 1. Invalid / tampered key fails
+      final invalidRes = await appState.unlockFeatures('invalid_key_string', overridePublicKeyHex: testPubKeyHex);
+      expect(invalidRes, isFalse);
       expect(appState.isFeaturesUnlocked, isFalse);
 
-      // Correct unlock password unlocks features
-      final success = await appState.unlockFeatures('microlendpro2025');
-      expect(success, isTrue);
+      // 2. License key for DIFFERENT machine fails
+      final wrongMachineRes = await appState.unlockFeatures(wrongMachineLicenseKey, overridePublicKeyHex: testPubKeyHex);
+      expect(wrongMachineRes, isFalse);
+      expect(appState.isFeaturesUnlocked, isFalse);
+
+      // 3. Valid license key for CURRENT machine succeeds
+      final validRes = await appState.unlockFeatures(validLicenseKey, overridePublicKeyHex: testPubKeyHex);
+      expect(validRes, isTrue);
       expect(appState.isFeaturesUnlocked, isTrue);
 
-      // 6th borrower addition succeeds now that features are unlocked
+      // 4. Adding 6th borrower succeeds now that features are unlocked
       await appState.addBorrower(Borrower(
         id: 'b_lim_6',
         fullName: 'Borrower 6',
@@ -460,6 +485,11 @@ void main() {
       ));
 
       expect(appState.borrowers.length, 6);
+
+      // 5. Switching machine ID (e.g., copied SharedPreferences) causes startup re-verification to fail
+      MachineIdUtils.setMockMachineId('copied_to_another_device_77777');
+      await appState.reload();
+      expect(appState.isFeaturesUnlocked, isFalse);
     });
 
     test('completion accounts for penalties and overpayment produces credit balance', () async {
